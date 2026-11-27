@@ -948,7 +948,7 @@ async function runTests() {
       commandText.startsWith('node -e');
     const isNodeScript =
       (Array.isArray(command) && command[0] === 'node' && typeof command[1] === 'string' && command[1].endsWith('.js')) ||
-      commandText.startsWith('node "');
+      /^node\s+(?:"[^"]+\.js"|\S+\.js)\b/.test(commandText);
     const isShellWrapper =
       (Array.isArray(command) && (command[0] === 'bash' || command[0] === 'sh')) ||
       commandText.startsWith('bash "') ||
@@ -976,7 +976,7 @@ async function runTests() {
             commandText.startsWith('node -e');
           const isFilePath =
             (Array.isArray(command) && command[0] === 'node' && typeof command[1] === 'string' && command[1].endsWith('.js')) ||
-            commandText.startsWith('node "');
+            /^node\s+(?:"[^"]+\.js"|\S+\.js)\b/.test(commandText);
           const isNpx = (Array.isArray(command) && command[0] === 'npx') || commandText.startsWith('npx ');
           const isShellWrapper =
             (Array.isArray(command) && (command[0] === 'bash' || command[0] === 'sh')) ||

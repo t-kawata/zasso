@@ -40,12 +40,14 @@ if (!mergeModule || !mergeModule.mergeContracts) {
   test('handles ticket with no edges', () => {
     const graph = { sourceFile: 't.md', mainLanguage: 'rust', nodes: [], edges: [] };
     const tickets = [makeTicket(1, ['N0001'])];
-    assert.strictEqual(mergeModule.mergeContracts(tickets, graph)[0].contracts.length, 0);
+    // The schema rejects an empty contracts array (minItems 1), so a ticket
+    // with nothing derived carries no field rather than an empty one.
+    assert.strictEqual(mergeModule.mergeContracts(tickets, graph)[0].contracts, undefined);
   });
 
   test('handles ticket with no nodeIds', () => {
     const graph = { sourceFile: 't.md', mainLanguage: 'rust', nodes: [], edges: [] };
-    assert.strictEqual(mergeModule.mergeContracts([makeTicket(1, [])], graph)[0].contracts.length, 0);
+    assert.strictEqual(mergeModule.mergeContracts([makeTicket(1, [])], graph)[0].contracts, undefined);
   });
 
   test('preserves existing ticket fields', () => {

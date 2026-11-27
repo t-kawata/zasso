@@ -222,22 +222,22 @@ test('UT-8b an executed file that was never discovered is named in unexpected[]'
 // UT-11 — the baseline is reported, not chased
 // ---------------------------------------------------------------------------
 
-test('UT-11 the declared baseline is fourteen legacy failures and they are tolerated', () => {
-  assert.equal(BASELINE_FAILURE_COUNT, 14);
+test('UT-11 the declared baseline is zero legacy failures, so a clean run is tolerated', () => {
+  assert.equal(BASELINE_FAILURE_COUNT, 0);
   assert.equal(isWithinBaseline(SURFACE_NAMES.CLAUDE_TESTS, BASELINE_FAILURE_COUNT), true);
   assert.deepEqual(
-    unexpectedFailuresOf(SURFACE_NAMES.CLAUDE_TESTS, { tests: 1859, pass: 1845, fail: BASELINE_FAILURE_COUNT }),
+    unexpectedFailuresOf(SURFACE_NAMES.CLAUDE_TESTS, { tests: 2175, pass: 2175, fail: BASELINE_FAILURE_COUNT }),
     [],
     'a run at the declared baseline reports no unexpected failure',
   );
   assert.equal(exitCodeForRun({}), 0, 'and therefore exits 0');
 });
 
-test('UT-11b a fifteenth legacy failure is unexpected and fails the run', () => {
+test('UT-11b the first legacy failure is unexpected and fails the run', () => {
   assert.equal(isWithinBaseline(SURFACE_NAMES.CLAUDE_TESTS, BASELINE_FAILURE_COUNT + 1), false);
-  const failures = unexpectedFailuresOf(SURFACE_NAMES.CLAUDE_TESTS, { tests: 1860, pass: 1845, fail: 15 });
+  const failures = unexpectedFailuresOf(SURFACE_NAMES.CLAUDE_TESTS, { tests: 2176, pass: 2175, fail: 1 });
   assert.equal(failures.length, 1);
-  assert.match(failures[0], /15/);
+  assert.match(failures[0], /1/);
   assert.equal(exitCodeForRun({ failures }), 1);
 });
 
@@ -248,10 +248,10 @@ test('UT-11c a failure in a surface with no declared baseline is unexpected at a
   assert.equal(exitCodeForRun({ failures }), 1);
 });
 
-test('UT-11e the declared project baseline is thirteen failures across nine files and is tolerated', () => {
+test('UT-11e the declared project baseline is empty and a clean run is tolerated', () => {
   const tolerated = unexpectedFailuresOf(SURFACE_NAMES.PROJECT_JS_CJS, {
-    tests: 2984,
-    pass: 2971,
+    tests: 3298,
+    pass: 3298,
     fail: PROJECT_JS_CJS_BASELINE.failures,
     failedFiles: PROJECT_JS_CJS_BASELINE.files,
   });
@@ -263,15 +263,15 @@ test('UT-11e the declared project baseline is thirteen failures across nine file
 });
 
 test('UT-11f a new failing file or a changed project total is unexpected and named', () => {
-  const withNewFile = [...PROJECT_JS_CJS_BASELINE.files, 'tests/scope-new.test.cjs'];
+  const withNewFile = ['tests/scope-new.test.cjs'];
   assert.equal(
-    isWithinBaseline(SURFACE_NAMES.PROJECT_JS_CJS, PROJECT_JS_CJS_BASELINE.failures, withNewFile),
+    isWithinBaseline(SURFACE_NAMES.PROJECT_JS_CJS, withNewFile.length, withNewFile),
     false,
   );
   const failures = unexpectedFailuresOf(SURFACE_NAMES.PROJECT_JS_CJS, {
-    tests: 2985,
-    pass: 2971,
-    fail: PROJECT_JS_CJS_BASELINE.failures,
+    tests: 3299,
+    pass: 3298,
+    fail: withNewFile.length,
     failedFiles: withNewFile,
   });
   assert.equal(failures.length, 1);

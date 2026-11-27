@@ -878,13 +878,13 @@ Output: `law-skill-verification/v1`.
 |---|---|
 | `schema` | `law-skill-verification/v1` |
 | `mode` | `dev` or `installed` |
-| `check_set_version` | `2` |
+| `check_set_version` | `3` |
 | `skill` | resolved skill path |
 | `root` | project root |
 | `source_root` | resolved source root, or null in installed mode |
 | `path_alias` | resolved alias map path |
 | `required_checks` | checks applicable to the mode |
-| `checks` | one entry per check |
+| `checks` | one entry per check, named by the active check set: `layer`, `manifest`, `lock`, `coverage`, `registry`, `genericBoundary`, `delivery`, `runtime`, `reproduction`, `tests`, `installer`, `determinism`, `redaction`, `coverageSemantics`, `inputLedger`, `pathAlias`, `installedLeak`, `style`, `conformance`, `lint`, `profile`, `graph`, `context`, `navigation`, `ruleIdentity`, `performance`, `traversalEnvelope`, `frontierCompleteness`, `unknownId`, `graphReach`, `facetSufficiency`, `guidanceDeterminism`, `sourceCoverage`, `aliasResolution`, `rulePreservation`, `bodyFidelity` |
 | `closure_sha256` | hash over mode + check set version + check names + statuses |
 
 Check status: `machine_verified` only pass; `failed`, `unverifiable`,

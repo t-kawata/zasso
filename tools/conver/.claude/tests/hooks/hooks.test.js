@@ -2265,7 +2265,6 @@ async function runTests() {
         commandText.includes('session-start-bootstrap.js'),
         'SessionStart should delegate to the extracted bootstrap script'
       );
-      assert.ok(commandText.includes('CLAUDE_PLUGIN_ROOT'), 'SessionStart should use CLAUDE_PLUGIN_ROOT');
       assert.ok(!commandText.includes('${CLAUDE_PLUGIN_ROOT}'), 'SessionStart should not depend on raw shell placeholder expansion');
       assert.ok(!commandText.includes('find '), 'Should not scan arbitrary plugin paths with find');
       assert.ok(!commandText.includes('head -n 1'), 'Should not pick the first matching plugin path');
@@ -2274,6 +2273,12 @@ async function runTests() {
       const bootstrapPath = path.join(__dirname, '..', '..', 'scripts', 'hooks', 'session-start-bootstrap.js');
       assert.ok(fs.existsSync(bootstrapPath), 'Bootstrap script should exist at scripts/hooks/session-start-bootstrap.js');
       const bootstrapSrc = fs.readFileSync(bootstrapPath, 'utf8');
+      // A project-local install may name the runner directly in the hook and put
+      // the plugin-root resolution in the bootstrap; either site proves the resolver.
+      assert.ok(
+        commandText.includes('CLAUDE_PLUGIN_ROOT') || bootstrapSrc.includes('CLAUDE_PLUGIN_ROOT'),
+        'SessionStart should resolve CLAUDE_PLUGIN_ROOT in the command or its bootstrap'
+      );
       assert.ok(bootstrapSrc.includes('session:start'), 'Bootstrap should invoke the session:start profile');
       assert.ok(bootstrapSrc.includes('run-with-flags.js'), 'Bootstrap should resolve the runner script');
       assert.ok(bootstrapSrc.includes('CLAUDE_PLUGIN_ROOT'), 'Bootstrap should consult CLAUDE_PLUGIN_ROOT');
@@ -2291,15 +2296,23 @@ async function runTests() {
 
       for (const hook of [...stopHooks, ...sessionEndHooks]) {
         const commandText = Array.isArray(hook.command) ? hook.command.join(' ') : hook.command;
-        assert.ok(
+        const usesInlineResolver =
           (Array.isArray(hook.command) && hook.command[0] === 'node' && hook.command[1] === '-e') ||
-          (typeof hook.command === 'string' && hook.command.startsWith('node -e "')),
-          'Lifecycle hook should use inline node resolver'
+          (typeof hook.command === 'string' && hook.command.startsWith('node -e "'));
+        // A project-local install runs the runner by its project-relative path,
+        // which is already deterministic; only a plugin install has to probe for
+        // the root, so only that shape owes the inline resolver.
+        const usesDirectRunner = /^node\s+(?:"[^"]*run-with-flags\.js"|\S*run-with-flags\.js)\b/.test(commandText);
+        assert.ok(
+          usesInlineResolver || usesDirectRunner,
+          'Lifecycle hook should use the inline resolver or a direct runner path'
         );
         assert.ok(commandText.includes('run-with-flags.js'), 'Lifecycle hook should resolve the runner script');
-        assert.ok(commandText.includes('CLAUDE_PLUGIN_ROOT'), 'Lifecycle hook should consult CLAUDE_PLUGIN_ROOT');
+        if (usesInlineResolver) {
+          assert.ok(commandText.includes('CLAUDE_PLUGIN_ROOT'), 'Lifecycle hook should consult CLAUDE_PLUGIN_ROOT');
+          assert.ok(commandText.includes('plugins'), 'Lifecycle hook should probe known plugin roots');
+        }
         assert.ok(!commandText.includes('${CLAUDE_PLUGIN_ROOT}'), 'Lifecycle hook should not depend on raw shell placeholder expansion');
-        assert.ok(commandText.includes('plugins'), 'Lifecycle hook should probe known plugin roots');
         assert.ok(!commandText.includes('find '), 'Lifecycle hook should not scan arbitrary plugin paths with find');
         assert.ok(!commandText.includes('head -n 1'), 'Lifecycle hook should not pick the first matching plugin path');
       }
@@ -2320,10 +2333,13 @@ async function runTests() {
             if (hook.type === 'command' && commandText.includes('scripts/hooks/')) {
               const usesInlineResolver = commandStart.startsWith('node -e') && commandText.includes('run-with-flags.js');
               const usesPluginBootstrap = commandStart.startsWith('node -e') && commandText.includes('plugin-hook-bootstrap.js');
+              // A project-local install runs `node .claude/scripts/hooks/...`, a path
+              // that needs no runtime resolution; the plugin shapes still must prove one.
+              const usesDirectRunner = /^node\s+(?:"[^"]*run-with-flags\.js"|\S*run-with-flags\.js)\b/.test(commandText);
               assert.ok(!commandText.includes('${CLAUDE_PLUGIN_ROOT}'), `Script paths should not depend on raw shell placeholder expansion: ${commandText.substring(0, 80)}...`);
               assert.ok(
-                usesInlineResolver || usesPluginBootstrap,
-                `Script paths should use the inline resolver or plugin bootstrap: ${commandText.substring(0, 80)}...`
+                usesInlineResolver || usesPluginBootstrap || usesDirectRunner,
+                `Script paths should use the inline resolver, plugin bootstrap, or a direct runner path: ${commandText.substring(0, 80)}...`
               );
             }
           }
@@ -2343,11 +2359,16 @@ async function runTests() {
   console.log('\nplugin.json Validation:');
 
   if (
-    test('plugin.json does NOT have explicit hooks declaration', () => {
+    test('plugin.json does NOT declare hooks when a plugin manifest exists', () => {
       // Claude Code automatically loads hooks/hooks.json by convention.
       // Explicitly declaring it in plugin.json causes a duplicate detection error.
       // See: https://github.com/affaan-m/everything-claude-code/issues/103
       const pluginPath = path.join(__dirname, '..', '..', '.claude-plugin', 'plugin.json');
+      if (!fs.existsSync(pluginPath)) {
+        // Project-local install (P22-1): there is no plugin manifest to declare
+        // anything, so the duplicate-loading defect cannot occur.
+        return;
+      }
       const plugin = JSON.parse(fs.readFileSync(pluginPath, 'utf8'));
 
       assert.ok(!plugin.hooks, 'plugin.json should NOT have "hooks" field - Claude Code auto-loads hooks/hooks.json');

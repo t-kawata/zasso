@@ -67,36 +67,33 @@ export const SURFACE_STATUS = Object.freeze({
 export const REQUIRED_NODE_MAJOR = 22;
 
 /**
- * The failures `.claude/tests` is known to produce, measured 2026-09-11. They are
- * the PX-142 acceptance baseline: plugin-root resolution and hook-format
- * assertions unrelated to this runner. A run at this count is not a failure; a run
- * above it is, and the difference is reported rather than tolerated.
+ * The failures `.claude/tests` is known to produce.
+ *
+ * Zero, and it must stay zero. The fourteen failures measured on 2026-09-11 and
+ * recorded as the PX-142 baseline were repaired on 2026-11-27: `run-with-flags`
+ * resolved a project-relative `.claude/scripts/...` argument against the
+ * `.claude` root and produced a double prefix, so every project-local hook failed
+ * open; the tests that asserted a plugin-only topology now accept the documented
+ * project-local shape, and the cache fixture no longer reads an absent package
+ * version. A run above this count is still a failure and is reported.
  */
-export const BASELINE_FAILURE_COUNT = 14;
+export const BASELINE_FAILURE_COUNT = 0;
 
 /**
  * The `project-js-cjs` failures this repository has accepted.
  *
- * Measured 2026-11-26 on the commit before PX-454: 13 failing tests across these
- * nine files, none of them related to the stage pipeline. They stay recorded here
- * rather than repaired in PX-454, and the gate remains strict at file granularity:
- * a new failing file, a baseline file that stops failing, or a changed total fails
- * the run, so this record must shrink when the defects are repaired.
+ * Empty, and it must stay empty. The nine files and thirteen tests this record
+ * carried were repaired on 2026-11-27: the dense-map iteration order and the
+ * excluded-phase alias, the ledger's derived-field exclusion, the quoted-path
+ * census and its six undecided extensions, the stale PX-396/PX-442 expectations,
+ * and the law verifier's hardcoded rule count. The gate remains strict at file
+ * granularity, so this record stays as the place a future regression would have
+ * to be written down rather than absorbed silently.
  */
 // [::TICKET::] PX-454 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-454 --for-spec --no-implementation-order`.
 export const PROJECT_JS_CJS_BASELINE = Object.freeze({
-  files: Object.freeze([
-    'tests/amend-rfc-up/guide-verifier.test.cjs',
-    'tests/amend-rfc-up/law-skill-verifier.test.cjs',
-    'tests/change-record.test.cjs',
-    'tests/merge-contracts-to-tickets.test.cjs',
-    'tests/scope-extensions.test.cjs',
-    'tests/tickets/condense-preservation.test.cjs',
-    'tests/tickets/condense-split-step.test.cjs',
-    'tests/tickets/e2e-legacy-migration.test.cjs',
-    'tests/tickets/ticket-identity-renumber.test.cjs',
-  ]),
-  failures: 13,
+  files: Object.freeze([]),
+  failures: 0,
 });
 
 /**
@@ -486,10 +483,11 @@ export function summariseSurface({ name, files, totals, selected = true }) {
 /**
  * Whether a surface's failures are the ones the repository has accepted.
  *
- * The legacy surface is tolerated by count, because its 14 failures are a measured
- * set that predates this runner. The project surface is tolerated by file and by
- * total: every failing file must be one of the nine recorded ones, and the total
- * must be the recorded 13. Any other surface has no tolerance at all.
+ * The legacy surface is tolerated by count. Its count is zero now: the fourteen
+ * failures it carried were repaired, so any failure is unexpected. The project
+ * surface is tolerated by file and by total the same way: every failing file must
+ * be one of the recorded ones, and the total must be the recorded count. Both are
+ * zero today. Any other surface has no tolerance at all.
  *
  * @param {string} surfaceName
  * @param {number} failCount

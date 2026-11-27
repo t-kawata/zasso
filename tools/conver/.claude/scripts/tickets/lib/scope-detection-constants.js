@@ -108,6 +108,46 @@ const EXCLUDED_SOURCE_EXTENSIONS = new Map([
       "C/C++ language representatives carry one header of this repository's own; the " +
       "other 2344 tracked headers are pjsip's, under an ignored root.",
   ],
+  [
+    ".conf",
+    "Data. The 4 tracked files are Asterisk, RTP and coturn daemon configuration " +
+      "shipped as EXEC_ASSETS of the natenv-okf skill. A daemon config declares no " +
+      "definition for the parser to bind to, and the file's own comment marker is " +
+      "not `//`, so admitting it would make the config unreadable rather than " +
+      "record provenance.",
+  ],
+  [
+    ".jsonl",
+    "Data. The 5 tracked files are gaia sequence and section adjudication fixtures " +
+      "under `tests/educe-sequences/fixtures/`. Their bytes are the measurement a " +
+      "regression gate reads, and a JSON Lines record has no definitions.",
+  ],
+  [
+    ".lock",
+    "Data. The 4 tracked files are Cargo lockfiles: two rust-interface-law runtime " +
+      "fixtures and two build-law-skill acceptance fixtures. A lockfile is a " +
+      "generated resolution ledger, not authored source.",
+  ],
+  [
+    ".ps1",
+    "Unsupported syntax. The 5 tracked files are Windows bootstrap, VM and " +
+      "collection scripts shipped in the natenv-okf EXEC_ASSETS. PowerShell reads " +
+      "`#` as its comment marker, so `buildAnnotation`'s `//` would be parsed as " +
+      "code. The definition parser has no PowerShell pattern.",
+  ],
+  [
+    ".tmpl",
+    "Templates. The 20 tracked files are rust-interface-law scaffolding bodies " +
+      "whose placeholders make them deliberately non-compilable. Writing a comment " +
+      "into one would change the text a scaffold copies into a project and the " +
+      "hashes its tests freeze, not record provenance on an implementation.",
+  ],
+  [
+    ".txt",
+    "Prose and data. The 3 tracked files are a font licence, a media dependency " +
+      "list and a language fixture. None declares a definition the annotation " +
+      "system could bind to.",
+  ],
 ]);
 
 /**

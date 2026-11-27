@@ -314,12 +314,15 @@ export function checkNavigation({ skillPath }) {
 
 export function checkRuleIdentity({ skillPath }) {
   const ruleMap = readJson(join(skillPath, 'source/rule-concepts.json'));
+  const lock = readJson(join(skillPath, 'atoms.lock.json'));
+  const count = Object.keys(ruleMap.byRule ?? {}).length;
+  const lockCount = (lock.rules ?? []).length;
   const result = spawnSync(process.execPath, [join(skillPath, 'dist/skill.mjs'), 'explain', '--rule', 'REST-01'], { encoding: 'utf8' });
   if (result.status !== 0) return failed('RULE_IDENTITY_FAILED', result.stderr);
   if (!result.stdout.includes('REST-01')) return failed('RULE_IDENTITY_FAILED', 'rule id absent');
-  return Object.keys(ruleMap.byRule ?? {}).length === 486
-    ? verified('486 rule ids resolve')
-    : failed('RULE_IDENTITY_COUNT', String(Object.keys(ruleMap.byRule ?? {}).length));
+  return count === lockCount
+    ? verified(`${count} effective rule ids resolve and match the lock`)
+    : failed('RULE_IDENTITY_COUNT', `rules=${count} lock=${lockCount}`);
 }
 
 export async function checkPerformance({ skillPath }) {
@@ -542,12 +545,14 @@ export function checkAliasResolution({ skillPath }) {
 
 export function checkRulePreservation({ skillPath }) {
   const ruleMap = readJson(join(skillPath, 'source/rule-concepts.json'));
+  const lock = readJson(join(skillPath, 'atoms.lock.json'));
   const ids = Object.keys(ruleMap.byRule ?? {});
-  if (ids.length !== 486) return failed('RULE_COUNT_CHANGED', String(ids.length));
+  const lockCount = (lock.rules ?? []).length;
+  if (ids.length !== lockCount) return failed('RULE_COUNT_CHANGED', `rules=${ids.length} lock=${lockCount}`);
   for (const id of ['FREE-01', 'VER-06', 'INV-06', 'REST-01', 'WS-33', 'IMP-01']) {
     if (!ruleMap.byRule?.[id]) return failed('RULE_LOST', id);
   }
-  return verified('466 prior rules plus 20 package rules are present');
+  return verified(`${ids.length} rules are present and match the lock`);
 }
 
 export async function checkBodyFidelity({ skillPath }) {

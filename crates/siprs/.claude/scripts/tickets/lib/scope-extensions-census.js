@@ -61,18 +61,23 @@ function parseExtension(trackedPath) {
 /**
  * Every path git tracks under repoRoot.
  *
+ * `-z` is required, not cosmetic: without it git quotes a non-ASCII path and
+ * wraps it in double quotes, so `docs/日本語.md` would be read as a file whose
+ * extension is `md"` and the census would owe a decision for an extension that
+ * does not exist. The NUL separator keeps every real path byte-exact.
+ *
  * A failure to read the repository is a failure of the check, not an empty
  * census. An empty census would report "nothing undecided", which is the exact
  * false negative this module exists to remove, so nothing is caught here.
  */
 // [::TICKET::] PX-209 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-209 --for-spec --no-implementation-order`.
 function readTrackedPaths(repoRoot) {
-  const stdout = execFileSync("git", ["ls-files"], {
+  const stdout = execFileSync("git", ["ls-files", "-z"], {
     cwd: repoRoot,
     encoding: "utf8",
     maxBuffer: MAX_GIT_OUTPUT_BYTES,
   });
-  return stdout.split("\n").filter((line) => line.length > 0);
+  return stdout.split("\0").filter((path) => path.length > 0);
 }
 
 /**

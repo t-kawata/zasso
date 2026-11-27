@@ -78,7 +78,7 @@ test("C001: every extension this repository presents is decided", () => {
   assert.ok(census.has(".js") && census.has(".md"), "and it must see both sides of the decision");
 });
 
-test("C001: the exclusion map is exactly {.cpp, .h, .json, .md, .sh, .toml} and every entry explains itself", () => {
+test("C001: the exclusion map is exactly {.conf, .cpp, .h, .json, .jsonl, .lock, .md, .ps1, .sh, .tmpl, .toml, .txt} and every entry explains itself", () => {
   // The literal below is the written record, not a snapshot of convenience: a
   // decision that disappears fails here, and a decision that appears without
   // being added here fails here too. `.toml` joined when P23-2's two-package
@@ -87,9 +87,18 @@ test("C001: the exclusion map is exactly {.cpp, .h, .json, .md, .sh, .toml} and 
   // same way when P24-1's C/C++ language representatives brought three of them
   // into this repository's own tree, and `.h` was decided beside it so that the
   // header and the translation unit are not treated as two different owners'
-  // files.
+  // files. `.conf`, `.jsonl`, `.lock`, `.ps1`, `.tmpl` and `.txt` joined when the
+  // natenv-okf EXEC_ASSETS, the gaia adjudication fixtures and the
+  // rust-interface-law templates crossed the floor: each is data, a generated
+  // lockfile, PowerShell the parser cannot read, or a template whose bytes a
+  // scaffold copies. Reading the census without quoting (`git ls-files -z`) is
+  // what keeps a non-ASCII `.md` path from appearing as a phantom `md"`.
   const keys = [...EXCLUDED_SOURCE_EXTENSIONS.keys()].sort();
-  assert.deepStrictEqual(keys, [".cpp", ".h", ".json", ".md", ".sh", ".toml"], "a decision must not vanish unnoticed");
+  assert.deepStrictEqual(
+    keys,
+    [".conf", ".cpp", ".h", ".json", ".jsonl", ".lock", ".md", ".ps1", ".sh", ".tmpl", ".toml", ".txt"],
+    "a decision must not vanish unnoticed",
+  );
 
   for (const [extension, reason] of EXCLUDED_SOURCE_EXTENSIONS) {
     assert.strictEqual(typeof reason, "string", extension + " must carry a reason");

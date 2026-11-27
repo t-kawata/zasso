@@ -13,9 +13,16 @@ const assert = require('assert');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
-const CURRENT_PACKAGE_VERSION = JSON.parse(
+const DECLARED_PACKAGE_VERSION = JSON.parse(
   fs.readFileSync(path.join(__dirname, '..', '..', 'package.json'), 'utf8')
 ).version;
+// A project-local install ships no package manifest version: `.claude` here is a
+// directory the installer writes, not a published package. The cache tests only
+// need a version-shaped segment, so they use a literal rather than reading an
+// absent field and failing every path.join with undefined.
+const CURRENT_PACKAGE_VERSION = typeof DECLARED_PACKAGE_VERSION === 'string' && DECLARED_PACKAGE_VERSION.length > 0
+  ? DECLARED_PACKAGE_VERSION
+  : '0.0.0';
 
 const { resolveEccRoot, INLINE_RESOLVE } = require('../../scripts/lib/resolve-ecc-root');
 

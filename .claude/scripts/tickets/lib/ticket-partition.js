@@ -40,13 +40,19 @@ const RECOMPUTED_FIELDS = Object.freeze([
 ]);
 
 /**
- * Fields the ledger does not copy verbatim.
+ * Fields the ledger does not copy because another rule owns them.
  *
- * The record is the recovery source, so it copies every field, including the
- * nested `condensedFrom` history. The survivor still recomputes derived fields;
- * the pre-merge value stays in the record.
+ * Derived fields are recomputed after the partition changes. `contracts` and
+ * `formulaObligations` are merged by their own id-keyed rules and rehydrated.
+ * `condensedFrom` is the ledger itself; copying it into its own record makes the
+ * history recursive and lets a later merge see the same entry twice.
  */
-const LEDGER_EXCLUDED_FIELDS = Object.freeze([]);
+const LEDGER_EXCLUDED_FIELDS = Object.freeze([
+  ...RECOMPUTED_FIELDS,
+  'contracts',
+  'formulaObligations',
+  'condensedFrom',
+]);
 
 /** Set-valued fields unioned into the survivor. */
 const MACHINE_ARRAY_FIELDS = Object.freeze([

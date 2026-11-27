@@ -87,6 +87,27 @@ function getPluginRoot() {
   return path.resolve(__dirname, '..', '..');
 }
 
+/**
+ * Resolve the script argument against the plugin root.
+ *
+ * Two command shapes reach this function. A plugin install names the script
+ * relative to the plugin root (`scripts/hooks/x.js`). A project-local install
+ * names it the way the hook runner sees it from the project directory
+ * (`.claude/scripts/hooks/x.js`), and when the plugin root *is* that `.claude`
+ * directory the plain join would produce `.claude/.claude/...` and every hook
+ * would fail open. Stripping the root's own directory name keeps both shapes
+ * resolving inside the root, and the traversal guard still applies afterwards.
+ */
+function resolveScriptPath(pluginRoot, relativeScriptPath) {
+  const resolvedRoot = path.resolve(pluginRoot);
+  const rootName = path.basename(resolvedRoot);
+  const rootPrefix = `${rootName}/`;
+  const normalized = relativeScriptPath.startsWith(rootPrefix)
+    ? relativeScriptPath.slice(rootPrefix.length)
+    : relativeScriptPath;
+  return path.resolve(resolvedRoot, normalized);
+}
+
 // [::TICKET::] PX-231 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-231 --for-spec --no-implementation-order`.
 async function main() {
   const [, , hookId, relScriptPath, profilesCsv] = process.argv;
@@ -104,7 +125,7 @@ async function main() {
 
   const pluginRoot = getPluginRoot();
   const resolvedRoot = path.resolve(pluginRoot);
-  const scriptPath = path.resolve(pluginRoot, relScriptPath);
+  const scriptPath = resolveScriptPath(pluginRoot, relScriptPath);
 
   // Prevent path traversal outside the plugin root
   if (!scriptPath.startsWith(resolvedRoot + path.sep)) {

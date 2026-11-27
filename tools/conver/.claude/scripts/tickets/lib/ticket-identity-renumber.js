@@ -78,6 +78,11 @@ function buildDenseRenumberMap(phases, options = {}) {
   const phasePlans = [];
   const liveRefs = new Map();
   const ticketRefs = [];
+  /** Live keys in document order; the return map is rebuilt from this so a
+   *  reader iterating it sees dense order, not the two passes' insertion order. */
+  const liveEmission = [];
+  /** Absorbed key -> owner, collected so the owner can emit its absorbed ids. */
+  const absorbedByOwner = new Map();
   let changed = false;
 
   // First pass: every live key owns its own dense id. This must finish before
@@ -95,6 +100,7 @@ function buildDenseRenumberMap(phases, options = {}) {
         keyMap.set(key, key);
         idMap.set(key, newId);
         liveRefs.set(key, { newKey: key, newId });
+        liveEmission.push({ oldKey: key, newKey: key, newId });
       }
       continue;
     }
@@ -114,7 +120,8 @@ function buildDenseRenumberMap(phases, options = {}) {
       keyMap.set(oldKey, newKey);
       idMap.set(oldKey, newId);
       liveRefs.set(oldKey, { newKey, newId });
-      ticketRefs.push({ ticket, phaseId: phase.id, newKey, newId });
+      liveEmission.push({ oldKey, newKey, newId });
+      ticketRefs.push({ ticket, phaseId: phase.id, oldKey, newKey, newId });
       ticketPlans.push({ oldId: ticket.id, newId, oldKey, newKey });
     });
 
@@ -153,10 +160,35 @@ function buildDenseRenumberMap(phases, options = {}) {
       if (absorbedKey !== ownerNewKey && entry.generation >= currentGeneration) changed = true;
       keyMap.set(absorbedKey, ownerNewKey);
       idMap.set(absorbedKey, ownerNewId);
+      const ownerAbsorbed = absorbedByOwner.get(ownerNewKey) ?? [];
+      ownerAbsorbed.push({ oldKey: absorbedKey, newKey: ownerNewKey, newId: ownerNewId });
+      absorbedByOwner.set(ownerNewKey, ownerAbsorbed);
     }
   }
 
-  return { keyMap, idMap, absorbedAliases, changed, phases: phasePlans };
+  // Rebuild both maps in dense order: a phase's live key, then the ids it
+  // absorbed, before the next live key. The two passes compute the right
+  // mapping but interleave the groups (all live keys, then all absorbed), and
+  // callers read the map as the phase's order.
+  const orderedKeyMap = new Map();
+  const orderedIdMap = new Map();
+  const emitted = new Set();
+  const emit = (entry) => {
+    if (emitted.has(entry.oldKey)) return;
+    emitted.add(entry.oldKey);
+    orderedKeyMap.set(entry.oldKey, entry.newKey);
+    orderedIdMap.set(entry.oldKey, entry.newId);
+    for (const absorbedEntry of absorbedByOwner.get(entry.newKey) ?? []) emit(absorbedEntry);
+  };
+  for (const entry of liveEmission) emit(entry);
+  for (const [oldKey, newKey] of keyMap) {
+    if (emitted.has(oldKey)) continue;
+    emitted.add(oldKey);
+    orderedKeyMap.set(oldKey, newKey);
+    orderedIdMap.set(oldKey, idMap.get(oldKey));
+  }
+
+  return { keyMap: orderedKeyMap, idMap: orderedIdMap, absorbedAliases, changed, phases: phasePlans };
 }
 
 /**
@@ -236,18 +268,35 @@ function stampHistoricalGeneration(document, generation) {
   return stamped;
 }
 
+/** The keys of the phases that are deliberately outside the numbering. */
+// [::TICKET::] PX-402 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-402 --for-spec --no-implementation-order`.
+function excludedKeysOf(phases, excluded) {
+  const keys = new Set();
+  for (const phase of phases ?? []) {
+    if (!phase || !excluded.has(phase.id)) continue;
+    for (const ticket of Array.isArray(phase.tickets) ? phase.tickets : []) {
+      keys.add(ticketKeyOf({ ...ticket, phaseId: phase.id }));
+    }
+  }
+  return keys;
+}
+
 /** The alias table after a renumber, composed with every earlier generation. */
 // [::TICKET::] PX-402 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-402 --for-spec --no-implementation-order`.
-function buildAliasTable(document, keyMap, generation, extraAliases = new Map()) {
+function buildAliasTable(document, keyMap, generation, extraAliases = new Map(), excludedKeys = new Set()) {
   const aliases = { ...(document?.identity?.[ALIASES_FIELD] ?? {}) };
   for (const [aliasKey, target] of Object.entries(aliases)) {
     const remapped = keyMap.get(target);
     if (remapped !== undefined) aliases[aliasKey] = remapped;
   }
   for (const [oldKey, newKey] of keyMap) {
+    // An excluded phase is byte-identical by contract; its keys are live but
+    // outside the numbering, so they gain no historical alias.
+    if (excludedKeys.has(oldKey)) continue;
     aliases[`${oldKey}@g${generation}`] = newKey;
   }
   for (const [oldKey, target] of extraAliases) {
+    if (excludedKeys.has(oldKey)) continue;
     const newKey = keyMap.get(target) ?? target;
     aliases[`${oldKey}@g${generation}`] = newKey;
   }
@@ -546,7 +595,7 @@ function remapDocumentWithKeyMap(document, keyMap, options = {}) {
   };
   clone.identity = {
     generation,
-    aliases: buildAliasTable(document, keyMap, generationBefore),
+    aliases: buildAliasTable(document, keyMap, generationBefore, new Map(), excludedKeysOf(document?.phases, excluded)),
     excludedPhases: [...excluded],
     ...(Object.keys(legacyReferences).length > 0 ? { legacyReferences } : {}),
   };
@@ -601,7 +650,13 @@ function renumberDocument(document, options = {}) {
     ...(document?.identity?.legacyReferences ?? {}),
     ...(options.legacyReferences ?? {}),
   };
-  const aliases = buildAliasTable(document, plan.keyMap, generationBefore, archiveAliasMap);
+  const aliases = buildAliasTable(
+    document,
+    plan.keyMap,
+    generationBefore,
+    archiveAliasMap,
+    excludedKeysOf(document?.phases, excluded),
+  );
   for (const [aliasKey, target] of plan.absorbedAliases ?? []) {
     aliases[aliasKey] = target;
   }

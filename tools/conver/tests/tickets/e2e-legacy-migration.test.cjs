@@ -167,17 +167,19 @@ function readJson(cwd, name) {
   return JSON.parse(fs.readFileSync(path.join(cwd, name), 'utf8'));
 }
 
-test('C002: an unstable mutation target is a repair, not a zero-work omission ticket', () => {
+test('C002: an unstable mutation target becomes one remediation ticket, not a zero-work omission ticket', () => {
   const cwd = fixture();
   try {
     const first = run(cwd);
     assert.equal(first.status, 10);
-    assert.equal(first.json.migration.ticketsCreated, 0);
+    // PX-442 C003 (restored by PX-444): the dropped proof needs a stable target,
+    // so the migration plans exactly one remediation ticket for the clause.
+    assert.equal(first.json.migration.ticketsCreated, 1);
 
     const document = readJson(cwd, 'Tickets.json');
     const omissionTickets = document.phases.flatMap((phase) => phase.tickets)
       .filter((ticket) => ticket.omissionStableKey === 'pkg-alpha|C002');
-    assert.equal(omissionTickets.length, 0);
+    assert.equal(omissionTickets.length, 1);
     assert.equal(first.json.sinks.repairs >= 1, true);
   } finally {
     fs.rmSync(cwd, { recursive: true, force: true });
@@ -195,7 +197,7 @@ test('C004/C005/C006/C009/C010: the first run migrates once and the second run c
     assert.equal(first.json.migration.dropped, 1);
     assert.equal(first.json.migration.judgmentsBound, 1);
     assert.equal(first.json.migration.repairsClosed, 1);
-    assert.equal(first.json.migration.ticketsCreated, 0);
+    assert.equal(first.json.migration.ticketsCreated, 1);
     assert.equal(first.json.sinks.repairs >= 1, true);
     assert.equal(first.json.proofCache.rerun, 0);
     assert.equal(first.json.proofCache.reused, 1);
@@ -213,7 +215,7 @@ test('C004/C005/C006/C009/C010: the first run migrates once and the second run c
     const afterFirst = readJson(cwd, 'Tickets.json');
     const omissionTickets = afterFirst.phases.flatMap((phase) => phase.tickets)
       .filter((ticket) => ticket.omissionStableKey === 'pkg-alpha|C002');
-    assert.equal(omissionTickets.length, 0);
+    assert.equal(omissionTickets.length, 1);
 
     const second = run(cwd);
     assert.equal(second.json.migration.adopted, 0);
@@ -227,7 +229,7 @@ test('C004/C005/C006/C009/C010: the first run migrates once and the second run c
     assert.equal(
       afterSecond.phases.flatMap((phase) => phase.tickets)
         .filter((ticket) => ticket.omissionStableKey === 'pkg-alpha|C002').length,
-      0,
+      1,
     );
     assert.equal(fs.readFileSync(path.join(cwd, '.conver-boundary.json'), 'utf8'), boundaryBefore);
   } finally {
@@ -251,7 +253,7 @@ test('C010 Invariant: report-only is byte-identical and writes nothing', () => {
     assert.equal(first.json.migration.adopted, 1);
     assert.equal(first.json.migration.dropped, 1);
     assert.equal(first.json.migration.judgmentsBound, 1);
-    assert.equal(first.json.migration.ticketsCreated, 0);
+    assert.equal(first.json.migration.ticketsCreated, 1);
     assert.equal(first.json.sinks.repairs >= 1, true);
     assert.equal(first.json.proofCache.rerun, 0);
 

@@ -119,7 +119,11 @@ function runTests() {
       const command = loadHook(hookId);
       const phase = hookId.startsWith('pre:') ? 'pre:observe' : 'post:observe';
 
-      assert.ok(command.includes(`node scripts/hooks/run-with-flags.js ${phase} scripts/hooks/observe-runner.js standard,strict`));
+      // The command shape depends on the install topology: a plugin install names
+      // `scripts/...`, a project-local install names `.claude/scripts/...`. Comparing
+      // the prefix-stripped form keeps the dispatch assertion without encoding one.
+      const normalized = command.replace(/\.claude\//g, '');
+      assert.ok(normalized.includes(`node scripts/hooks/run-with-flags.js ${phase} scripts/hooks/observe-runner.js standard,strict`));
       assert.ok(!command.includes('shell scripts/hooks/run-with-flags-shell.sh'), `${hookId} should not use shell-mode bootstrap`);
       assert.ok(!command.includes('skills/continuous-learning-v2/hooks/observe.sh'), `${hookId} should not call observe.sh directly from hooks.json`);
     }

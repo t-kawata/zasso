@@ -35,13 +35,18 @@ const REPOSITORY_TICKETS = path.resolve(__dirname, '..', 'Tickets.json');
 
 /**
  * The tickets this rule names in this repository today, recorded rather than
- * summarised. P24-8 is absent because this ticket wrote its record; the other
- * fourteen are the finding the audit did not examine, and they belong here by
- * name so that a fifteenth cannot join them unnoticed.
+ * summarised. P24-8 is absent because this ticket wrote its record. The original
+ * fourteen are the finding the audit did not examine. The nine PX-323..PX-434
+ * entries were recovered as `reviewed` by the 2026-11-13 tree recovery; their
+ * commits no longer exist in this history, so a truthful change record cannot be
+ * reconstructed, and the finding records them by name instead of letting them
+ * join unnoticed. They belong here by name so that a twenty-fourth cannot.
  */
 const FROZEN_FINDING = Object.freeze([
   'P-1-19', 'P-1-20', 'P-1-30', 'P-1-66', 'P-1-67', 'P-1-68', 'P-1-69', 'P-1-70',
-  'P-1-71', 'P-1-94', 'P-1-95', 'P-1-163', 'P-1-198', 'P2-1',
+  'P-1-71', 'P-1-94', 'P-1-95', 'P-1-163', 'P-1-198',
+  'P-1-323', 'P-1-324', 'P-1-329', 'P-1-330', 'P-1-414', 'P-1-417', 'P-1-418',
+  'P-1-419', 'P-1-434', 'P2-1',
 ]);
 
 /** A document carrying one ticket, so a status can be varied without a repository. */
@@ -89,7 +94,7 @@ test('C002 postcondition: an absent key and an empty array are one violation at 
   assert.deepStrictEqual(reportEmptyChangeSets(documentWith({ status: 'reviewed', changes: [CHANGE] })), []);
 });
 
-test('C002 postcondition: this repository reports the fourteen recorded tickets and nothing below the statuses that require the record', () => {
+test('C002 postcondition: this repository reports the twenty-three recorded tickets and nothing below the statuses that require the record', () => {
   const repository = JSON.parse(fs.readFileSync(REPOSITORY_TICKETS, 'utf8'));
   const reported = reportEmptyChangeSets(repository);
   const keys = reported.map((line) => line.slice(0, line.indexOf(' (')));

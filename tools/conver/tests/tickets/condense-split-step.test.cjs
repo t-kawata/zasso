@@ -52,7 +52,7 @@ function ticket(id, overrides = {}) {
   };
 }
 
-test('C005: a numeric-phase merge keeps every surviving key and remaps absorbed references', async () => {
+test('C005: a numeric-phase merge finishes dense and keeps absorbed keys historical', async () => {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'condense-split-'));
   const tickets = [ticket(1), ticket(2), ticket(3, { default_files: Array.from({ length: 20 }, (_, index) => `src/three-${index}.js`) })];
   const document = {
@@ -72,7 +72,9 @@ test('C005: a numeric-phase merge keeps every surviving key and remaps absorbed 
   assert.equal(result.ok, true);
   const merged = JSON.parse(fs.readFileSync(path.join(directory, 'Tickets.json'), 'utf8'));
   const keys = merged.phases[0].tickets.map((entry) => `P0-${entry.id}`);
-  assert.deepEqual(keys, ['P0-1', 'P0-3']);
+  // PX-402: a condense finishes with dense ids, so the surviving P0-3 becomes
+  // P0-2. The absorbed key stays historical in the ledger and does not follow.
+  assert.deepEqual(keys, ['P0-1', 'P0-2']);
   assert.equal(merged.phases[0].tickets[0].condensedFrom.tickets[0].key, 'P0-2');
 });
 
