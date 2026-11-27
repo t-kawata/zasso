@@ -49,7 +49,14 @@ test('C004 the entry point, the artefact and the build script all exist', () => 
 
   const scripts = JSON.parse(readFileSync(join(PROJECT_ROOT, 'package.json'), 'utf8')).scripts;
   assert.equal(typeof scripts.build, 'string', 'the check runs the declared build rather than its own spelling');
-  assert.match(scripts.build, /esbuild/, 'and that build must be the one that produces the bundle');
+  // The build may name esbuild directly, or delegate to the build script that
+  // imports it. Follow the declared script instead of re-spelling the bundler.
+  if (!/esbuild/.test(scripts.build)) {
+    const declaredScript = scripts.build.match(/node\s+(?:--\S+\s+)*(\S+\.(?:mjs|js|cjs))/)?.[1];
+    assert.ok(declaredScript, 'the declared build must name a script when it does not name esbuild');
+    const buildSource = readFileSync(join(PROJECT_ROOT, declaredScript), 'utf8');
+    assert.match(buildSource, /esbuild/, 'and that build must be the one that produces the bundle');
+  }
 });
 
 test('C004 esbuild is resolvable, and its absence is reported rather than assumed', () => {

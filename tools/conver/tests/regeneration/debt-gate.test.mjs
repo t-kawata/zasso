@@ -61,7 +61,7 @@ function openOnCandidate(workspace) {
 // [::TICKET::] PX-287 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-287 --for-spec --no-implementation-order`.
 function deriveToArtifact(workspace, opened) {
   deriveGeneration({ root: workspace.root, transactionId: opened.transactionId });
-  writeArtifactForSpec(opened.stagingRoot, join(opened.stagingRoot, 'spec.md'));
+  writeArtifactForSpec(opened.stagingRoot, opened.stagingSpecPath);
   return deriveGeneration({ root: workspace.root, transactionId: opened.transactionId });
 }
 

@@ -120,13 +120,13 @@ test('C003/C011/C012: the law adapter produces a full skill that passes dev and 
     });
 
     const ruleConcepts = readJson(join(staged, 'source/rule-concepts.json'));
-    assert.equal(Object.keys(ruleConcepts.byRule).length, 487);
+    assert.equal(Object.keys(ruleConcepts.byRule).length, 501);
     assert.ok(existsSync(join(staged, 'okf/rules/c/rest-08.md')));
     assert.ok(existsSync(join(staged, 'okf/rules/c/rest-19.md')));
     assert.match(readFileSync(join(staged, 'okf/rules/c/rest-08.md'), 'utf8'), /24 hour replay window/);
     const lock = readJson(join(staged, 'atoms.lock.json'));
     assert.equal(lock.schema, 'law-atoms/v3');
-    assert.equal(lock.rules.length, 487);
+    assert.equal(lock.rules.length, 501);
     assert.ok(lock.rules.some((rule) => rule.rule_id === 'REST-22'));
     assert.match(readFileSync(join(staged, 'okf/rules/c/index.md'), 'utf8'), /REST-22/);
     assert.equal(readJson(join(staged, 'source/pre-okf-original.json')).sha256, documentMap.sha256);

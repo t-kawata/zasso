@@ -50,7 +50,9 @@ function mutateSection(heading, from, to) {
   const end = next < 0 ? COMMAND_TEXT.length : next;
   const section = COMMAND_TEXT.slice(start, end);
   assert.ok(section.includes(from), `${heading} lacks ${from}`);
-  const replaced = section.replace(from, to);
+  // Every occurrence in the section: the command names the canonical verifier
+  // more than once, and a first-only mutation leaves a later copy to satisfy the audit.
+  const replaced = section.replaceAll(from, to);
   assert.notEqual(replaced, section);
   return COMMAND_TEXT.slice(0, start) + replaced + COMMAND_TEXT.slice(end);
 }

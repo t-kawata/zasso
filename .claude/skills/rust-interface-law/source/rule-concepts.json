@@ -9466,5 +9466,34 @@
       "class": "C"
     }
   },
-  "aliases": {}
+  "aliases": {
+    "INV-04": {
+      "rule_id": "ARC-03",
+      "concept_id": "rules/c/arc-03"
+    },
+    "INV-07": {
+      "rule_id": "AUTH-08",
+      "concept_id": "rules/c/auth-08"
+    },
+    "INV-05": {
+      "rule_id": "CONF-42",
+      "concept_id": "rules/p/conf-42"
+    },
+    "INV-02": {
+      "rule_id": "IF-01",
+      "concept_id": "rules/c/if-01"
+    },
+    "INV-01": {
+      "rule_id": "IF-02",
+      "concept_id": "rules/c/if-02"
+    },
+    "INV-08": {
+      "rule_id": "OPS-06",
+      "concept_id": "rules/c/ops-06"
+    },
+    "INV-03": {
+      "rule_id": "OPS-07",
+      "concept_id": "rules/c/ops-07"
+    }
+  }
 }

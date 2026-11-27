@@ -32,7 +32,7 @@ function completeInput(overrides = {}) {
       tool: 'insert-verifies',
       input: { file: 'tests/a.test.cjs', line: 1, contractId: 'C001' },
     }],
-    rerun: 'node .claude/scripts/tickets/verify-plan-contracts.js --ticket-key=PX-1 --tickets=Tickets.json',
+    rerun: 'node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/verify-plan-contracts.js" --ticket-key=PX-1 --tickets=Tickets.json',
     ...overrides,
   };
 }

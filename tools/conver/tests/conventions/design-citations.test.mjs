@@ -72,7 +72,7 @@ const ANCHORED_CITATIONS = Object.freeze([
   { asWritten: 'drill-rfc-down/boundify-step.js:67', path: '.claude/scripts/drill-rfc-down/boundify-step.js', line: 67, token: '.delta.json' },
   { asWritten: 'command-file-digest.mjs:50', path: '.claude/scripts/workspacify-reverse/lib/command-file-digest.mjs', line: 50, token: 'COMMAND_FILE_NAMES' },
   { asWritten: 'command.test.mjs:145', path: 'tests/workspacify-reverse/integration/command.test.mjs', line: 145, token: 'a creation, not an edit' },
-  { asWritten: 'command-file.mjs:270', path: 'tests/workspacify-reverse/helpers/command-file.mjs', line: 270, token: 'function assertCommandFileStructure' },
+  { asWritten: 'command-file.mjs:273', path: 'tests/workspacify-reverse/helpers/command-file.mjs', line: 273, token: 'function assertCommandFileStructure' },
   { asWritten: 'command.test.mjs:153', path: 'tests/workspacify-reverse/integration/command.test.mjs', line: 153, token: 'assertCommandFileStructure' },
   // Re-measured 2026-10-01 by PX-231, which inserted a two-line import into scope.mjs: the
   // citation moved with the file rather than the file being kept still for the citation.
@@ -249,7 +249,7 @@ const EDUCE_ANCHORED_CITATIONS = Object.freeze([
   // above `PHASE_GUIDANCE`, and re-measured for PX-266, which annotated that same constant
   // again: 276 -> 278.
   { asWritten: 'phases.mjs:299', path: '.claude/scripts/educe-sequences/rail/phases.mjs', line: 299, token: 'export function runPhase' },
-  { asWritten: 'run-state.mjs:194', path: '.claude/scripts/educe-sequences/rail/run-state.mjs', line: 194, token: 'export function openRun' },
+  { asWritten: 'run-state.mjs:195', path: '.claude/scripts/educe-sequences/rail/run-state.mjs', line: 195, token: 'export function openRun' },
   // Re-measured for PX-267, whose vocabulary change and annotation both added a line above it:
   // 303 -> 309.
   { asWritten: 'readings.mjs:507', path: '.claude/scripts/educe-sequences/rail/readings.mjs', line: 507, token: 'export function readReadingsFile' },
@@ -257,7 +257,7 @@ const EDUCE_ANCHORED_CITATIONS = Object.freeze([
   // Written with its directory because `report.mjs` alone names two files in this tree,
   // and a citation that names either of two files names neither.
   { asWritten: 'rail/report.mjs:269', path: '.claude/scripts/educe-sequences/rail/report.mjs', line: 269, token: 'export function buildReport' },
-  { asWritten: 'phase.mjs:338', path: '.claude/scripts/educe-sequences/rail/phase.mjs', line: 338, token: 'export async function main' },
+  { asWritten: 'phase.mjs:328', path: '.claude/scripts/educe-sequences/rail/phase.mjs', line: 328, token: 'export async function main' },
   // Added by PX-245, which made a generation measure what it produced and stopped
   // refusing a repeat over an unchanged set. The four above were re-measured with it,
   // each by the lines the same change added above the definition.

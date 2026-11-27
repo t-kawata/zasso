@@ -298,7 +298,10 @@ export function checkIoStubs(rfcPath) {
 
 /** Run drill preflight and return its stdout, which carries the [VARIABLES] block. */
 export function runDrillPreflight({ ticketsPath, materialPath }) {
-  return runNode(join(DRILL_DIR, 'preflight.cjs'), [`--tickets=${ticketsPath}`, materialPath]);
+  // The drill resolves its package from the invocation; a fixture living outside
+  // the test runner's cwd names it explicitly instead of being refused.
+  const packageArgument = `--package=${dirname(ticketsPath)}`;
+  return runNode(join(DRILL_DIR, 'preflight.cjs'), [`--tickets=${ticketsPath}`, packageArgument, materialPath]);
 }
 
 /**

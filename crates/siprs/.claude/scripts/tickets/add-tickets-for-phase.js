@@ -1545,9 +1545,11 @@ function verifySequenceSteps(phase, view, graph, artifact = null) {
 
   const observed = new Map();
   const implementedOperations = new Set();
+  const referencedOperations = new Set();
   for (const ticket of phase?.tickets ?? []) {
     for (const unit of ticket?.distribution?.units ?? []) {
       if (unit?.obligation?.mode === 'implement') implementedOperations.add(unit.unitId);
+      if (unit?.obligation?.mode === 'reference') referencedOperations.add(unit.unitId);
       for (const step of unit?.obligation?.steps ?? []) {
         const entry = observed.get(step.stepId) ?? { ticketIds: new Set(), steps: [], occurrences: 0, unitId: unit.unitId };
         entry.ticketIds.add(ticket.id);
@@ -1572,7 +1574,11 @@ function verifySequenceSteps(phase, view, graph, artifact = null) {
       // present without any implementer in this package is still a malformed distribution.
       const carriesOperation = requiresImplementer && graphUnits.has(operationUnitId);
       const implementsHere = implementedOperations.has(operationUnitId);
-      const isPackageStep = carriesOperation && implementsHere;
+      // A reference-only operation is implemented in another package, so this
+      // phase does not owe its step. Any other owned operation whose step reaches
+      // no ticket is missing, including the case where no ticket implements the
+      // operation at all.
+      const isPackageStep = carriesOperation && !referencedOperations.has(operationUnitId);
       if (hit === undefined) {
         if (isPackageStep) {
           findings.push({ code: 'MISSING_SEQUENCE_STEP', stepId: step.stepId, unitId, layer: 'ticket', message: `sequence ${unitId} step ${step.stepId} reaches no ticket` });

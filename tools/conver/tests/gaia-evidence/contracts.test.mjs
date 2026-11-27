@@ -95,17 +95,19 @@ function currentReceiptDigests(root) {
 }
 
 // [::TICKET::] PX-299 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-299 --for-spec --no-implementation-order`.
-const context = loadContext();
+const context = GAIA_ROOT === null
+  ? { artifact: null, contractRegistry: [], rfcByPackage: {}, linesByPath: {} }
+  : loadContext();
 // [::TICKET::] PX-299 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-299 --for-spec --no-implementation-order`.
-const judgments = readJsonl(GAIA_ROOT, join('educe-sequences', 'readings-judgment.jsonl'));
+const judgments = GAIA_ROOT === null ? [] : readJsonl(GAIA_ROOT, join('educe-sequences', 'readings-judgment.jsonl'));
 // [::TICKET::] PX-299 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-299 --for-spec --no-implementation-order`.
-const attacks = readJsonl(GAIA_ROOT, join('educe-sequences', 'readings-attack.jsonl'));
+const attacks = GAIA_ROOT === null ? [] : readJsonl(GAIA_ROOT, join('educe-sequences', 'readings-attack.jsonl'));
 // [::TICKET::] PX-299 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-299 --for-spec --no-implementation-order`.
-const inquest = readJsonl(GAIA_ROOT, join('educe-sequences', 'readings-inquest.jsonl'));
+const inquest = GAIA_ROOT === null ? [] : readJsonl(GAIA_ROOT, join('educe-sequences', 'readings-inquest.jsonl'));
 // [::TICKET::] PX-299 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-299 --for-spec --no-implementation-order`.
-const uncovered = readJsonl(GAIA_ROOT, join('educe-sequences', 'readings-uncovered.jsonl'));
+const uncovered = GAIA_ROOT === null ? [] : readJsonl(GAIA_ROOT, join('educe-sequences', 'readings-uncovered.jsonl'));
 // [::TICKET::] PX-299 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-299 --for-spec --no-implementation-order`.
-const status = readJson(GAIA_ROOT, join('educe-sequences', 'status.json'));
+const status = GAIA_ROOT === null ? { generation: null } : readJson(GAIA_ROOT, join('educe-sequences', 'status.json'));
 // [::TICKET::] PX-299 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-299 --for-spec --no-implementation-order`.
 const generation = status.generation;
 
@@ -235,17 +237,20 @@ test('C001 every empty pinned column is grounded absent, not an open property ob
 // @verifies C001
 // [::TICKET::] PX-299 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-299 --for-spec --no-implementation-order`.
 test('C001 an unresolved basis names the field, the quote or the shape it lacks', () => {
+  // The basis resolver only needs one operation to look up. A local fixture keeps
+  // this unit case runnable when no GAIA workspace is configured.
+  const artifact = { operations: [{ id: 'CreateAssetRecord', allowed_status_transitions: ['active'] }] };
   const phantom = validateBasisEntry(
     { source: 'artifact', id: 'NoSuchOperation', field: 'required_proof_classes', quote: 'x' },
     {},
-    { artifact: context.artifact, subject: 'NoSuchOperation' },
+    { artifact, subject: 'NoSuchOperation' },
   );
   assert.equal(phantom.code, 'BASIS_FIELD_UNRESOLVED');
 
   const missingQuote = validateBasisEntry(
     { source: 'artifact', id: 'CreateAssetRecord', field: 'allowed_status_transitions' },
     {},
-    { artifact: context.artifact, subject: 'CreateAssetRecord' },
+    { artifact, subject: 'CreateAssetRecord' },
   );
   assert.equal(missingQuote.code, 'BASIS_QUOTE_MISSING');
 
@@ -340,6 +345,7 @@ test('C003 a stale or inherited inquest answer reopens its obligation', () => {
   const stale = resolveReadingsObligations([obligation], {
     readings: { inquest: [base] },
     generation: 14,
+    generationStartedAt: '2026-10-01T00:00:00.000Z',
   });
   assert.equal(stale[0].state, 'open');
   assert.equal(stale[0].reason, 'READER_GENERATION_STALE');
@@ -347,6 +353,7 @@ test('C003 a stale or inherited inquest answer reopens its obligation', () => {
   const inherited = resolveReadingsObligations([obligation], {
     readings: { inquest: [{ ...base, readerGeneration: 14, inheritedFrom: 'educe-sequences/generation-13' }] },
     generation: 14,
+    generationStartedAt: '2026-10-01T00:00:00.000Z',
     inheritedPolicy: 'block',
   });
   assert.equal(inherited[0].state, 'open');

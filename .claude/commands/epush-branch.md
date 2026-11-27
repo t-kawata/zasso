@@ -19,7 +19,7 @@ Current branch → remote. Spec evidence → English message → commit → push
 Run once. It prints Markdown; every later Step reads it. Do not re-derive.
 
 ```bash
-CLAUDE_DIR=$(d=$PWD; while [ ! -f "$d/.claude/scripts/tickets/collect-push-evidence.js" ] && [ "$d" != / ]; do d=$(dirname "$d"); done; printf '%s/.claude' "$d")
+CLAUDE_DIR="$(git rev-parse --show-toplevel)/.claude"
 node "$CLAUDE_DIR/scripts/tickets/collect-push-evidence.js"
 ```
 

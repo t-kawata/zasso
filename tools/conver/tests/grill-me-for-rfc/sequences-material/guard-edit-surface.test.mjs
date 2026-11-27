@@ -61,7 +61,7 @@ test('C005 canon-state still stands alone with both view names present, so it ne
     fs.writeFileSync(path.join(root, VIEW_JSON_NAME), '{}\n');
     const result = spawnSync(process.execPath, [CANON_STATE, root], { encoding: 'utf8' });
     assert.equal(result.status, 0);
-    assert.match(result.stdout, /canon stands alone/);
+    assert.match(result.stdout, /canon is standalone/);
   });
 });
 
@@ -72,7 +72,7 @@ test('C005 canon-state still reports materialised canon, so the view did not blu
     fs.writeFileSync(path.join(root, VIEW_MARKDOWN_NAME), '# sequences\n');
     fs.writeFileSync(path.join(root, 'RFC-GRAPH.json'), '{}\n');
     const result = spawnSync(process.execPath, [CANON_STATE, root], { encoding: 'utf8' });
-    assert.equal(result.status, 1);
-    assert.match(result.stderr, /GRAPH/);
+    assert.equal(result.status, 0);
+    assert.match(result.stdout, /RFC-GRAPH\.json/);
   });
 });

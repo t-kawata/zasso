@@ -201,12 +201,12 @@ test('C007 invariant: STEP 1 states that a denominator gap withholds without sto
 });
 
 // [::TICKET::] PX-261, PX-263 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-261|PX-263) --for-spec --no-implementation-order`.
-test('C007 invariant: the STEP 8 gate carries ten conditions and the defect gate', () => {
+test('C007 invariant: the STEP 8 gate carries eleven conditions and the defect gate', () => {
   const text = commandText();
   const start = text.indexOf('### STEP 8:');
   const section = text.slice(start, text.indexOf('### STEP 8a', start));
 
-  assert.match(section, /gate \(all 10 required\)/);
+  assert.match(section, /gate \(all 11 required\)/);
   assert.match(section, /defect-report\.js --gate` exits 0/);
   assert.match(section, /seed divergence ledger and the defect ledger are present and well formed/);
   // PX-261: the guarantee has two halves and both are required where the package declares DONE.

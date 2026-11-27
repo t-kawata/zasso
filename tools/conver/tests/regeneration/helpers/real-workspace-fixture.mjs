@@ -9,7 +9,7 @@
  */
 import { copyFileSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { dirname, join } from 'node:path';
+import { basename, dirname, join } from 'node:path';
 import { spawnSync } from 'node:child_process';
 
 import { digestOf } from '../../../.claude/scripts/educe-sequences/rail/load.mjs';
@@ -49,7 +49,7 @@ export function writeArtifactForSpec(root, specPath, fileName = 'spec-sequences.
     schema_version: 3,
     vocabulary: { terminalStatuses: [], requiredInterfaces: [] },
     spec: {
-      path: 'spec.md',
+      path: basename(specPath),
       sha256: digestOf(specPath),
       lines: readFileSync(specPath, 'utf8').split('\n').length,
     },
@@ -66,14 +66,16 @@ export function writeArtifactForSpec(root, specPath, fileName = 'spec-sequences.
 // [::TICKET::] PX-279 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-279 --for-spec --no-implementation-order`.
 export function materializeRealWorkspace() {
   const root = mkdtempSync(join(tmpdir(), 'regeneration-real-'));
-  const specPath = join(root, 'spec.md');
+  // PX-454: the forward subject is fixed to SYSTEM-DESIGN.md at the workspace
+  // root, and the producer takes no --spec argument.
+  const specPath = join(root, 'SYSTEM-DESIGN.md');
   writeFileSync(specPath, LIVE_SPEC_TEXT);
   stageTreeDecisionsFrom(root, join(TREE_FIXTURES, 'gaia-decisions.json'));
-  runProducerCli(root, 'workspacify-tree/run.mjs', ['finalize', `--spec=${specPath}`]);
+  runProducerCli(root, 'workspacify-tree/run.mjs', ['finalize']);
 
   const treeManifest = JSON.parse(readFileSync(join(root, 'WORKSPACIFY-TREE-MANIFEST.json'), 'utf8'));
   stageAllocateDecisions(root, settleSelfGrill({ decisions: makeDecisions(treeManifest), manifest: treeManifest }));
-  runProducerCli(root, 'workspacify-allocate/run.mjs', ['finalize', join(root, 'WORKSPACIFY-TREE-MANIFEST.json')]);
+  runProducerCli(root, 'workspacify-allocate/run.mjs', ['finalize']);
 
   writeArtifactForSpec(root, specPath);
   for (const pkg of treeManifest.workspace?.packages ?? []) {

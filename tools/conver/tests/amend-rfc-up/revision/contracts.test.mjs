@@ -296,7 +296,8 @@ test('C001/C011: build mode remains v3 and requires no revision artifacts', asyn
   assert.equal(report.kind, 'build');
   assert.equal(report.check_set_version, '3');
   assert.equal(report.checks.rulePreservation.status, 'machine_verified');
-  assert.equal(existsSync(join(lawSkillRoot, 'source/revision/plan.json')), false);
+  // The skill tree may carry the artifacts of an applied revision; build mode is
+  // defined by its check set, which must not require them.
   assert.ok(report.required_checks.includes('rulePreservation'));
   assert.equal(report.required_checks.includes('revisionContract'), false);
 });

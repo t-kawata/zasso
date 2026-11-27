@@ -142,7 +142,7 @@ test('C001 a ticket with no crossing and no ctr unit receives no boundary contra
     },
   });
   mergeContracts([ticket], graph(), REGISTRY, { steps: [] });
-  assert.equal(ticket.contracts.some((entry) => entry.boundaryId === 'boundary-029'), false);
+  assert.equal((ticket.contracts ?? []).some((entry) => entry.boundaryId === 'boundary-029'), false);
 });
 
 test('C001 the crossed boundary contract is a registry-backed contract, not an invention', () => {

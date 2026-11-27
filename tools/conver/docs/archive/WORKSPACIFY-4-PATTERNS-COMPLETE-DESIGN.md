@@ -425,7 +425,7 @@ Before designing the content, the permissions:
   that name a script and were never guarded joined it — and this file stayed outside, for the reason
   above.)*
 - But eight structural assertions **do** bind it. They are defined in
-  `helpers/command-file.mjs:270` (`assertCommandFileStructure`) and applied to this file at
+  `helpers/command-file.mjs:273` (`assertCommandFileStructure`) and applied to this file at
   `command.test.mjs:153`. A rewrite must keep
   all of them:
 

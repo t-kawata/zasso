@@ -314,7 +314,7 @@ test('editing the staged annotations after verify refuses commit', () => {
       reason: 'annotations after verify',
     });
     deriveGeneration({ root: workspace.root, transactionId: opened.transactionId });
-    writeArtifactForSpec(opened.stagingRoot, join(opened.stagingRoot, 'spec.md'));
+    writeArtifactForSpec(opened.stagingRoot, opened.stagingSpecPath);
     deriveGeneration({ root: workspace.root, transactionId: opened.transactionId });
     verifyGeneration({
       root: workspace.root,
@@ -350,7 +350,7 @@ test('commit archives the annotations candidate', () => {
       reason: 'annotations archive',
     });
     deriveGeneration({ root: workspace.root, transactionId: opened.transactionId });
-    writeArtifactForSpec(opened.stagingRoot, join(opened.stagingRoot, 'spec.md'));
+    writeArtifactForSpec(opened.stagingRoot, opened.stagingSpecPath);
     deriveGeneration({ root: workspace.root, transactionId: opened.transactionId });
     verifyGeneration({
       root: workspace.root,

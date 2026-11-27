@@ -102,5 +102,6 @@ test('C001 a flow ticket sharing an operation node does not receive the step con
   mergeContracts([implementer, flowTicket], graph, [], sidecar);
 
   assert.deepEqual(implementer.contracts.map((contract) => contract.stepId), ['s1']);
-  assert.deepEqual(flowTicket.contracts, []);
+  // An empty contracts array is not schema-valid, so the field is absent.
+  assert.deepEqual(flowTicket.contracts ?? [], []);
 });

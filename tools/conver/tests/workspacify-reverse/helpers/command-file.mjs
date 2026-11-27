@@ -437,7 +437,7 @@ export function findAbsenceContradictions({ sectionText: section, unreachable, r
  * without the rule stated beside it that line reads as an inconsistency.
  *
  * It sits beside its only consumer rather than with the constants at the top because
- * `design-citations.test.mjs` pins `command-file.mjs:214` to `assertCommandFileStructure`:
+ * `design-citations.test.mjs` pins `command-file.mjs:273` to `assertCommandFileStructure`:
  * a constant added above that line moves it, and the guard reports the drift.
  *
  * The sentence is matched rather than quoted so the wording can be improved without a

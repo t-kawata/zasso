@@ -67,9 +67,9 @@ const NEXT_ACTION = Object.freeze({
 });
 
 /** The educe command that settles a staged specification. */
-// [::TICKET::] PX-280 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-280 --for-spec --no-implementation-order`.
-function educeCommandFor(stagingSpecPath) {
-  return `run "${COMMANDS_DIRECTORY}/educe-sequences.md" with ${stagingSpecPath}, then ${NEXT_CONTINUE}`;
+// [::TICKET::] PX-280, PX-454 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-280|PX-454) --for-spec --no-implementation-order`.
+function educeCommandFor() {
+  return `run "${COMMANDS_DIRECTORY}/educe-sequences.md" from the staging root (the specification is SYSTEM-DESIGN.md there), then ${NEXT_CONTINUE}`;
 }
 
 /**
@@ -100,10 +100,10 @@ export function describeThroughHandoff({ exitCode, stdout = '', stderr = '' }, s
   const stopped = stdout.split('\n').find((line) => /^phase\s+\d+\s+\[[a-z-]+\]\s+(FAIL|HALTED)/.test(line));
   if (stopped !== undefined) {
     const [phaseId, phaseTag, verdict] = stopped.match(/^phase\s+(\d+)\s+\[([a-z-]+)\]\s+(\w+)/).slice(1);
-    return `phase.mjs through stopped at phase ${phaseId} [${phaseTag}] ${verdict}; ${educeCommandFor(stagingSpecPath)}`;
+    return `phase.mjs through stopped at phase ${phaseId} [${phaseTag}] ${verdict}; ${educeCommandFor()}`;
   }
   const reason = stderr.trim() || stdout.trim() || `exit ${exitCode}`;
-  return `phase.mjs through refused: ${reason.split('\n')[0]}; ${educeCommandFor(stagingSpecPath)}`;
+  return `phase.mjs through refused: ${reason.split('\n')[0]}; ${educeCommandFor()}`;
 }
 
 /** A stable transaction id. */
@@ -554,18 +554,23 @@ export function renderDistributionRefresh({ stagingRoot, treeManifest, onlyExist
  * so the staged artifact already records the candidate spec; beginning a generation
  * there would discard readings no reader is going to rewrite.
  */
-// [::TICKET::] PX-279 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-279 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-279, PX-454 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-279|PX-454) --for-spec --no-implementation-order`.
 export function runSetup({ root, stagingRoot, candidateSpec, runNodeFn = runNode }) {
-  const tree = runNodeFn(stagingRoot, 'workspacify-tree/run.mjs', ['finalize', `--spec=${candidateSpec}`]);
+  // PX-454 fixes the forward subject to SYSTEM-DESIGN.md at the workspace root.
+  // prepareDerivationRoot has already staged the candidate there, so the producer
+  // takes no --spec argument; the cwd is the contract.
+  const tree = runNodeFn(stagingRoot, 'workspacify-tree/run.mjs', ['finalize']);
   if (!tree.ok) return { ok: false, failure: { state: STATES.DERIVE_FAILED, setupDone: false, failedStep: 'workspacify-tree', stderr: tree.stderr } };
 
+  // PX-454 also fixes stage two's subject: the tree manifest at the root. The
+  // cwd is the staging root, so no manifest argument is accepted or needed.
   const treeManifestPath = join(stagingRoot, 'WORKSPACIFY-TREE-MANIFEST.json');
-  const allocate = runNodeFn(stagingRoot, 'workspacify-allocate/run.mjs', ['finalize', treeManifestPath]);
+  const allocate = runNodeFn(stagingRoot, 'workspacify-allocate/run.mjs', ['finalize']);
   if (!allocate.ok) return { ok: false, failure: { state: STATES.DERIVE_FAILED, setupDone: false, failedStep: 'workspacify-allocate', stderr: allocate.stderr } };
 
   const stagedArtifact = readArtifactCurrency({ stagingRoot, specPath: candidateSpec });
   if (stagedArtifact.state !== 'current') {
-    const educe = runNodeFn(stagingRoot, 'educe-sequences/rail/phase.mjs', ['begin', candidateSpec]);
+    const educe = runNodeFn(stagingRoot, 'educe-sequences/rail/phase.mjs', ['begin']);
     if (!educe.ok) return { ok: false, failure: { state: STATES.DERIVE_FAILED, setupDone: false, failedStep: 'educe-sequences', stderr: educe.stderr } };
   }
 
@@ -608,7 +613,7 @@ export function runPipelineProducer({ root, stagingRoot, candidateSpec, resume =
   if (!requireEvidenceCurrency) {
     let legacyArtifact = readArtifactCurrency({ stagingRoot, specPath: candidateSpec });
     if (legacyArtifact.state === 'missing' || legacyArtifact.state === 'stale') {
-      const through = runNode(stagingRoot, 'educe-sequences/rail/phase.mjs', ['through', candidateSpec]);
+      const through = runNode(stagingRoot, 'educe-sequences/rail/phase.mjs', ['through']);
       legacyArtifact = readArtifactCurrency({ stagingRoot, specPath: candidateSpec });
       if (legacyArtifact.state === 'missing' || legacyArtifact.state === 'stale') {
         return {
@@ -616,7 +621,7 @@ export function runPipelineProducer({ root, stagingRoot, candidateSpec, resume =
           setupDone: true,
           stagingSpecPath: candidateSpec,
           next: through.ok
-            ? `phase.mjs through completed without an artifact; ${educeCommandFor(candidateSpec)}`
+            ? `phase.mjs through completed without an artifact; ${educeCommandFor()}`
             : describeThroughHandoff(through, candidateSpec),
         };
       }
@@ -648,7 +653,7 @@ export function runPipelineProducer({ root, stagingRoot, candidateSpec, resume =
   if (artifact.state === 'missing' || artifact.state === 'stale') {
     // The rail performs every deterministic phase and stops at the first read
     // phase; a non-zero exit is therefore the handoff, not a producer failure.
-    const through = runNode(stagingRoot, 'educe-sequences/rail/phase.mjs', ['through', candidateSpec]);
+    const through = runNode(stagingRoot, 'educe-sequences/rail/phase.mjs', ['through']);
     artifact = readArtifactAndEvidenceCurrency({ stagingRoot, specPath: candidateSpec });
     if (artifact.state === 'missing' || artifact.state === 'stale') {
       return {
@@ -656,7 +661,7 @@ export function runPipelineProducer({ root, stagingRoot, candidateSpec, resume =
         setupDone: true,
         stagingSpecPath: candidateSpec,
         next: through.ok
-          ? `phase.mjs through completed without an artifact; ${educeCommandFor(candidateSpec)}`
+          ? `phase.mjs through completed without an artifact; ${educeCommandFor()}`
           : describeThroughHandoff(through, candidateSpec),
       };
     }
@@ -698,7 +703,7 @@ export function runPipelineProducer({ root, stagingRoot, candidateSpec, resume =
   });
   if (decision.state === 'educe-pending') {
     if (!artifact.evidenceApplicable || !hasOpenReadPhases(stagingRoot)) {
-      const begun = runNode(stagingRoot, 'educe-sequences/rail/phase.mjs', ['begin', candidateSpec]);
+      const begun = runNode(stagingRoot, 'educe-sequences/rail/phase.mjs', ['begin']);
       if (!begun.ok) {
         return { state: STATES.DERIVE_FAILED, setupDone: true, failedStep: 'educe-sequences', stderr: begun.stderr };
       }
@@ -712,7 +717,7 @@ export function runPipelineProducer({ root, stagingRoot, candidateSpec, resume =
         };
       }
     }
-    return { state: 'educe-pending', setupDone: true, stagingSpecPath: candidateSpec, next: educeCommandFor(candidateSpec) };
+    return { state: 'educe-pending', setupDone: true, stagingSpecPath: candidateSpec, next: educeCommandFor() };
   }
 
   advanceManifestArtifactIfFresh({
@@ -1001,7 +1006,7 @@ export function continueTransaction(options) {
       const stagingSpecPath = derived.stagingSpecPath ?? null;
       const next = typeof derived.next === 'string' && derived.next.includes('educe-sequences.md')
         ? derived.next
-        : educeCommandFor(stagingSpecPath ?? 'the staged specification');
+        : educeCommandFor();
       return {
         state: 'educe-pending',
         next,

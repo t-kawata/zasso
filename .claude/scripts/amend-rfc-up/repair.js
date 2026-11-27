@@ -51,10 +51,10 @@ const ACTION_BY_CLASS = Object.freeze({
 });
 
 const VERIFY_BY_CLASS = Object.freeze({
-  rfc: 'node .claude/scripts/tickets/verify-amendment.js --report',
-  graph: 'node .claude/scripts/rfc-graph/verify.js',
-  'dirs-tree': 'node .claude/scripts/drill-rfc-down/verify-step.js',
-  tickets: 'node .claude/scripts/tickets/verify-amendment.js --report',
+  rfc: 'node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/verify-amendment.js" --report',
+  graph: 'node "$(git rev-parse --show-toplevel)/.claude/scripts/rfc-graph/verify.js"',
+  'dirs-tree': 'node "$(git rev-parse --show-toplevel)/.claude/scripts/drill-rfc-down/verify-step.js"',
+  tickets: 'node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/verify-amendment.js" --report',
   law: 'the verified *-law skill gate and attest',
   evidence: 'the finding action',
 });

@@ -178,7 +178,9 @@ test('the command keeps judgment with the AI and names only direction questions 
   assert.doesNotMatch(command, /human decision|stop and report|if a human is needed/i);
   assert.doesNotMatch(command, /judgment-required is a stop/i);
   assert.match(command, /never asks|does not ask/i);
-  assert.match(command, /three questions per round|3 questions.*5 rounds/i);
+  // The command no longer bounds a question round: it asks none. The stronger
+  // rule is the one the document carries now.
+  assert.match(command, /no question is put to a human/i);
   assert.match(command, /explain-seed/);
   assert.match(command, /grill-me-for-rfc/);
 });

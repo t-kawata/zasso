@@ -22,7 +22,7 @@ function reportMode(argv = process.argv.slice(2)) {
 /** The rerun command that proves one gate finding. */
 // [::TICKET::] PX-398 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-398 --for-spec --no-implementation-order`.
 function gateRerun(gate, ticketKey, ticketsPath) {
-  return `node .claude/scripts/tickets/${gate}.js --ticket-key=${ticketKey} --tickets=${ticketsPath} --report`;
+  return `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/${gate}.js" --ticket-key=${ticketKey} --tickets=${ticketsPath} --report`;
 }
 
 /** A repair that the caller authors (judgment) and a script inserts. */

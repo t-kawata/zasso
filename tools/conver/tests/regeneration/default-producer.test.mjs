@@ -54,7 +54,7 @@ test('open stages the candidate without copying a package document into the deri
     assert.equal(stagedBeforeSetup.some((path) => path.startsWith('crates/')), false);
     assert.deepEqual(snapshotDesignTree(workspace.root), before);
     const entry = readLedger(workspace.root).transactions.at(-1);
-    assert.equal(entry.specRelativePath, 'spec.md');
+    assert.equal(entry.specRelativePath, 'SYSTEM-DESIGN.md');
     assert.equal(entry.candidateHash.length, 64);
   } finally {
     workspace.remove();
@@ -96,7 +96,7 @@ test('derive runs the real tree and allocate producers and returns educe-pending
     const derived = deriveGeneration({ root: workspace.root, transactionId: opened.transactionId });
     assert.equal(derived.state, 'educe-pending');
     assert.match(derived.next, /educe-sequences/);
-    assert.equal(derived.stagingSpecPath, join(opened.stagingRoot, 'spec.md'));
+    assert.equal(derived.stagingSpecPath, join(opened.stagingRoot, 'SYSTEM-DESIGN.md'));
     assert.deepEqual(snapshotDesignTree(workspace.root), before);
 
     const entry = readLedger(workspace.root).transactions.at(-1);
@@ -120,7 +120,7 @@ test('a second derive after the educe handoff accepts a matching artifact and wr
       reason: 'S1.duplicate-id',
     });
     deriveGeneration({ root: workspace.root, transactionId: opened.transactionId });
-    const stagedArtifact = writeArtifactForSpec(opened.stagingRoot, join(opened.stagingRoot, 'spec.md'));
+    const stagedArtifact = writeArtifactForSpec(opened.stagingRoot, opened.stagingSpecPath);
 
     const derived = deriveGeneration({ root: workspace.root, transactionId: opened.transactionId });
     assert.equal(derived.state, 'derived');
@@ -143,7 +143,7 @@ test('the full transaction commits the candidate specification and keeps the liv
       reason: 'S1.duplicate-id',
     });
     deriveGeneration({ root: workspace.root, transactionId: opened.transactionId });
-    writeArtifactForSpec(opened.stagingRoot, join(opened.stagingRoot, 'spec.md'));
+    writeArtifactForSpec(opened.stagingRoot, opened.stagingSpecPath);
     deriveGeneration({ root: workspace.root, transactionId: opened.transactionId });
 
     const verified = verifyGeneration({
@@ -160,7 +160,7 @@ test('the full transaction commits the candidate specification and keeps the liv
       runDetector: fixtureDetectorOk,
     });
     assert.equal(committed.state, 'committed');
-    assert.equal(readFileSync(join(workspace.root, 'spec.md'), 'utf8'), CANDIDATE_SPEC_TEXT);
+    assert.equal(readFileSync(workspace.specPath, 'utf8'), CANDIDATE_SPEC_TEXT);
     assert.equal(existsSync(opened.stagingRoot), false);
     assert.equal(verifyChain(workspace.root).ok, true);
   } finally {
@@ -195,7 +195,7 @@ test('the CLI commit publishes a verified generation while its own detector runs
     );
     assert.equal(result.status, 0, result.stderr);
     assert.match(result.stdout, /state: committed/);
-    assert.equal(readFileSync(join(workspace.root, 'spec.md'), 'utf8'), CANDIDATE_SPEC_TEXT);
+    assert.equal(readFileSync(workspace.specPath, 'utf8'), CANDIDATE_SPEC_TEXT);
     assert.equal(verifyChain(workspace.root).ok, true);
   } finally {
     workspace.remove();
@@ -222,7 +222,7 @@ test('continue advances a real specification candidate through the educe handoff
     assert.match(pending.next, /educe-sequences\.md/);
     assert.match(readLedger(workspace.root).transactions.at(-1).pending, /phase\.mjs through stopped at phase \d+/);
 
-    writeArtifactForSpec(opened.stagingRoot, join(opened.stagingRoot, 'spec.md'));
+    writeArtifactForSpec(opened.stagingRoot, opened.stagingSpecPath);
     const committed = continueTransaction({
       root: workspace.root,
       transactionId: opened.transactionId,
@@ -230,7 +230,7 @@ test('continue advances a real specification candidate through the educe handoff
       runDetector: fixtureDetectorOk,
     });
     assert.equal(committed.state, 'committed');
-    assert.equal(readFileSync(join(workspace.root, 'spec.md'), 'utf8'), CANDIDATE_SPEC_TEXT);
+    assert.equal(readFileSync(workspace.specPath, 'utf8'), CANDIDATE_SPEC_TEXT);
     assert.equal(verifyChain(workspace.root).ok, true);
   } finally {
     workspace.remove();
@@ -253,7 +253,7 @@ test('the CLI continue reports the educe handoff with exit 3 and the staged spec
     );
     assert.equal(result.status, 3, result.stderr);
     assert.match(result.stdout, /state: educe-pending/);
-    assert.match(result.stdout, /spec: .*spec\.md/);
+    assert.match(result.stdout, /spec: .*SYSTEM-DESIGN\.md/);
     assert.match(result.stdout, /next: .*educe-sequences\.md/);
     assert.match(result.stdout, /continue/);
   } finally {
@@ -288,7 +288,7 @@ test('the CLI continue commits a verified transaction with exit 0', () => {
     );
     assert.equal(result.status, 0, result.stderr);
     assert.match(result.stdout, /state: committed/);
-    assert.equal(readFileSync(join(workspace.root, 'spec.md'), 'utf8'), CANDIDATE_SPEC_TEXT);
+    assert.equal(readFileSync(workspace.specPath, 'utf8'), CANDIDATE_SPEC_TEXT);
 
     const detector = runCommand([workspace.root, '--legacy']);
     assert.notEqual(detector.exitCode, 2);
@@ -302,7 +302,7 @@ test('the CLI continue commits a verified transaction with exit 0', () => {
 test('a decisions-only transaction reuses the current artifact and leaves the live specification unchanged', () => {
   const workspace = materializeRealWorkspace();
   try {
-    const beforeSpec = readFileSync(join(workspace.root, 'spec.md'));
+    const beforeSpec = readFileSync(workspace.specPath);
     const before = snapshotDesignTree(workspace.root);
     const candidateAllocateDecisions = writeCandidateAllocateDecisions(workspace);
     const opened = openTransaction({
@@ -313,7 +313,7 @@ test('a decisions-only transaction reuses the current artifact and leaves the li
 
     const derived = deriveGeneration({ root: workspace.root, transactionId: opened.transactionId });
     assert.equal(derived.state, 'derived');
-    assert.deepEqual(readFileSync(join(workspace.root, 'spec.md')), beforeSpec);
+    assert.deepEqual(readFileSync(workspace.specPath), beforeSpec);
     assert.deepEqual(snapshotDesignTree(workspace.root), before);
 
     const verified = verifyGeneration({
@@ -329,7 +329,7 @@ test('a decisions-only transaction reuses the current artifact and leaves the li
       runDetector: fixtureDetectorOk,
     });
     assert.equal(committed.state, 'committed');
-    assert.deepEqual(readFileSync(join(workspace.root, 'spec.md')), beforeSpec);
+    assert.deepEqual(readFileSync(workspace.specPath), beforeSpec);
     const liveDecisions = JSON.parse(readFileSync(join(workspace.root, 'workspacify/allocate/DECISIONS.json'), 'utf8'));
     assert.equal(liveDecisions.semantic_review.approver, 'regeneration-test');
   } finally {
@@ -341,7 +341,7 @@ test('a decisions-only transaction reuses the current artifact and leaves the li
 test('continue commits a decisions-only transaction without invoking educe', () => {
   const workspace = materializeRealWorkspace();
   try {
-    const beforeSpec = readFileSync(join(workspace.root, 'spec.md'));
+    const beforeSpec = readFileSync(workspace.specPath);
     const opened = openTransaction({
       root: workspace.root,
       candidateAllocateDecisions: writeCandidateAllocateDecisions(workspace),
@@ -354,7 +354,7 @@ test('continue commits a decisions-only transaction without invoking educe', () 
       runDetector: fixtureDetectorOk,
     });
     assert.equal(committed.state, 'committed');
-    assert.deepEqual(readFileSync(join(workspace.root, 'spec.md')), beforeSpec);
+    assert.deepEqual(readFileSync(workspace.specPath), beforeSpec);
     assert.equal(readLedger(workspace.root).transactions.at(-1).pending, undefined);
   } finally {
     workspace.remove();

@@ -5,6 +5,7 @@ import assert from 'node:assert/strict';
 
 import { analyzeWorkspace } from '../../.claude/scripts/conver/draw-progress-gif.js';
 import {
+  COMMAND_ROLES,
   STAGE_ORDER,
   applyEvent,
   buildFrames,
@@ -61,6 +62,7 @@ test('C001: a run marker advances the displayed stage on the execution-order pat
       packageId: 'pkg-1',
       status: 'BLOCKED_PREREQUISITE',
       runId: 'r1',
+      role: COMMAND_ROLES.EVOLUTION,
       evidence: 'history',
     }],
     growthEvents: [{

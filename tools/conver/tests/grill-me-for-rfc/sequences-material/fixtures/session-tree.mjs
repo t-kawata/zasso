@@ -154,7 +154,11 @@ export function runDetector(packageDir, { sessionDir = null, entryPoint = DETECT
 
 /** Run the guard as the command runs it. */
 export function guardVerdict(target) {
-  const result = spawnSync(process.execPath, [GUARD, target, '--json'], { encoding: 'utf8' });
+  // The guard distinguishes a same-package generated file from a cross-package
+  // one; these cases are about the name rules, so the invocation package is the
+  // target's own directory.
+  const packageArgument = `--package=${path.dirname(target)}`;
+  const result = spawnSync(process.execPath, [GUARD, target, '--json', packageArgument], { encoding: 'utf8' });
   return { status: result.status, verdict: safeParse(result.stdout) };
 }
 
