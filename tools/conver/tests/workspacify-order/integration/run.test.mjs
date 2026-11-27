@@ -42,7 +42,7 @@ function threePackageWorkspace(t) {
   return workspace;
 }
 
-// [::TICKET::] PX-223, PX-228, PX-323, PX-393, PX-459 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-223|PX-228|PX-323|PX-393|PX-459) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-223, PX-228, PX-323, PX-393, PX-459, PX-461 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-223|PX-228|PX-323|PX-393|PX-459|PX-461) --for-spec --no-implementation-order`.
 function expectedPlan(workspace) {
   return [
     // The command opens the plan with a blank line and a Markdown H1, so the expected bytes
@@ -51,12 +51,12 @@ function expectedPlan(workspace) {
     `# ${basename(workspace.root)} build order — 3 dirs / 2 levels / 2 dependencies`,
     '',
     '<level 0>',
-    '  * crates/protocol/package-1 ◻️ WTR ◻️ WAL',
+    '  * crates/protocol/package-1 🔳 WTR 🔳 WAL',
     '',
     '<level 1>',
-    '  * crates/protocol/package-2 ◻️ WTR ◻️ WAL',
+    '  * crates/protocol/package-2 🔳 WTR 🔳 WAL',
     '',
-    '    crates/protocol/package-3 ◻️ WTR ◻️ WAL',
+    '    crates/protocol/package-3 🔳 WTR 🔳 WAL',
     '',
     'critical chain   package-1 → package-2',
     '',
@@ -217,12 +217,12 @@ test('IT: an explained workspace prints the label after the path and exits 0', (
       `# ${basename(workspace.root)} build order — 3 dirs / 2 levels / 2 dependencies`,
       '',
       '<level 0>',
-      '  * crates/protocol/package-1 ◻️ WTR ◻️ WAL 🔴 EXP',
+      '  * crates/protocol/package-1 🔳 WTR 🔳 WAL 🔴 EXP',
       '',
       '<level 1>',
-      '  * crates/protocol/package-2 ◻️ WTR ◻️ WAL',
+      '  * crates/protocol/package-2 🔳 WTR 🔳 WAL',
       '',
-      '    crates/protocol/package-3 ◻️ WTR ◻️ WAL 🔴 EXP',
+      '    crates/protocol/package-3 🔳 WTR 🔳 WAL 🔴 EXP',
       '',
       'critical chain   package-1 → package-2',
       '',
@@ -250,7 +250,7 @@ test('IT: the mark follows the directory and not the manifest, so writing the do
   const after = runOrder([], { cwd: workspace.root });
 
   assert.notEqual(after.stdout, before.stdout);
-  assert.ok(after.stdout.includes('    crates/protocol/package-3 ◻️ WTR ◻️ WAL 🔴 EXP\n'));
+  assert.ok(after.stdout.includes('    crates/protocol/package-3 🔳 WTR 🔳 WAL 🔴 EXP\n'));
   assert.deepEqual(readManifests(), manifestsBefore);
 });
 
@@ -262,8 +262,8 @@ test('IT: a seed run prints the mark in the plan and no mark in the focused bloc
   assert.equal(result.status, 0);
   // The rule of dashes opens the focused block, so everything before it is the plan.
   const [plan, block] = result.stdout.split('─'.repeat(66));
-  assert.ok(plan.includes('    crates/protocol/package-3 ◻️ WTR ◻️ WAL 🔴 EXP\n'));
-  assert.ok(plan.includes('\n  * crates/protocol/package-2 ◻️ WTR ◻️ WAL\n'));
+  assert.ok(plan.includes('    crates/protocol/package-3 🔳 WTR 🔳 WAL 🔴 EXP\n'));
+  assert.ok(plan.includes('\n  * crates/protocol/package-2 🔳 WTR 🔳 WAL\n'));
   assert.match(block, /▶ crates\/protocol\/package-3 +level 1 · 3rd\n/);
   assert.doesNotMatch(block, /🔴 EXP/);
 });
@@ -295,12 +295,12 @@ test('IT: a grilled workspace prints the grill mark after the path and exits 0',
       `# ${basename(workspace.root)} build order — 3 dirs / 2 levels / 2 dependencies`,
       '',
       '<level 0>',
-      '  * crates/protocol/package-1 ◻️ WTR ◻️ WAL',
+      '  * crates/protocol/package-1 🔳 WTR 🔳 WAL',
       '',
       '<level 1>',
-      '  * crates/protocol/package-2 ◻️ WTR ◻️ WAL 🟠 GRI:?',
+      '  * crates/protocol/package-2 🔳 WTR 🔳 WAL 🟠 GRI:?',
       '',
-      '    crates/protocol/package-3 ◻️ WTR ◻️ WAL 🟠 GRI:?',
+      '    crates/protocol/package-3 🔳 WTR 🔳 WAL 🟠 GRI:?',
       '',
       'critical chain   package-1 → package-2',
       '',
@@ -321,12 +321,12 @@ test('IT: a directory holding both documents prints both marks, explained first'
       `# ${basename(workspace.root)} build order — 3 dirs / 2 levels / 2 dependencies`,
       '',
       '<level 0>',
-      '  * crates/protocol/package-1 ◻️ WTR ◻️ WAL 🔴 EXP 🟠 GRI:?',
+      '  * crates/protocol/package-1 🔳 WTR 🔳 WAL 🔴 EXP 🟠 GRI:?',
       '',
       '<level 1>',
-      '  * crates/protocol/package-2 ◻️ WTR ◻️ WAL        🟠 GRI:?',
+      '  * crates/protocol/package-2 🔳 WTR 🔳 WAL        🟠 GRI:?',
       '',
-      '    crates/protocol/package-3 ◻️ WTR ◻️ WAL 🔴 EXP',
+      '    crates/protocol/package-3 🔳 WTR 🔳 WAL 🔴 EXP',
       '',
       'critical chain   package-1 → package-2',
       '',
@@ -344,7 +344,7 @@ test('IT: the grill mark follows the directory and not the manifest, so writing 
   const after = runOrder([], { cwd: workspace.root });
 
   assert.notEqual(after.stdout, before.stdout);
-  assert.ok(after.stdout.includes('    crates/protocol/package-3 ◻️ WTR ◻️ WAL 🟠 GRI:?\n'));
+  assert.ok(after.stdout.includes('    crates/protocol/package-3 🔳 WTR 🔳 WAL 🟠 GRI:?\n'));
   assert.deepEqual(readManifests(), manifestsBefore);
 });
 
@@ -362,13 +362,13 @@ test('IT: a workspace the distribution reached prints the judged mark after the 
       `# ${basename(workspace.root)} build order — 3 dirs / 2 levels / 2 dependencies`,
       '',
       '<level 0>',
-      '  * crates/protocol/package-1 ◻️ WTR   ◻️ WAL',
+      '  * crates/protocol/package-1 🔳 WTR   🔳 WAL',
       '',
       '<level 1>',
-      '  * crates/protocol/package-2 ◻️ WTR   ◻️ WAL 🟠 GRI:?',
+      '  * crates/protocol/package-2 🔳 WTR   🔳 WAL 🟠 GRI:?',
       '                              🟡 SEQ:?',
       '',
-      '    crates/protocol/package-3 ◻️ WTR   ◻️ WAL 🟠 GRI:?',
+      '    crates/protocol/package-3 🔳 WTR   🔳 WAL 🟠 GRI:?',
       '                              🟡 SEQ:?',
       '',
       'critical chain   package-1 → package-2',
@@ -392,14 +392,14 @@ test('IT: a directory the pipeline reached prints the three marks in pipeline or
       `# ${basename(workspace.root)} build order — 3 dirs / 2 levels / 2 dependencies`,
       '',
       '<level 0>',
-      '  * crates/protocol/package-1 ◻️ WTR   ◻️ WAL 🔴 EXP 🟠 GRI:?',
+      '  * crates/protocol/package-1 🔳 WTR   🔳 WAL 🔴 EXP 🟠 GRI:?',
       '                              🟡 SEQ:?',
       '',
       '<level 1>',
-      '  * crates/protocol/package-2 ◻️ WTR   ◻️ WAL        🟠 GRI:?',
+      '  * crates/protocol/package-2 🔳 WTR   🔳 WAL        🟠 GRI:?',
       '                              🟡 SEQ:?',
       '',
-      '    crates/protocol/package-3 ◻️ WTR   ◻️ WAL 🔴 EXP',
+      '    crates/protocol/package-3 🔳 WTR   🔳 WAL 🔴 EXP',
       '',
       'critical chain   package-1 → package-2',
       '',
@@ -419,7 +419,7 @@ test('IT: the judged mark follows the directory and not the manifest, so writing
   const after = runOrder([], { cwd: workspace.root });
 
   assert.notEqual(after.stdout, before.stdout);
-  assert.ok(after.stdout.includes('    crates/protocol/package-3 ◻️ WTR   ◻️ WAL 🟠 GRI:?\n                              🟡 SEQ:?\n'));
+  assert.ok(after.stdout.includes('    crates/protocol/package-3 🔳 WTR   🔳 WAL 🟠 GRI:?\n                              🟡 SEQ:?\n'));
   assert.deepEqual(readManifests(), manifestsBefore);
 });
 
@@ -445,7 +445,7 @@ test('IT: a failed verdict prints its mark, writes nothing to stderr and exits 0
 
   assert.equal(result.stderr, '');
   assert.equal(result.status, 0, 'a verdict is a reading and never a blocking point');
-  assert.ok(result.stdout.includes('    crates/protocol/package-3 ◻️ WTR   ◻️ WAL 🟠 GRI:?\n                              ❌ SEQ:?\n'));
+  assert.ok(result.stdout.includes('    crates/protocol/package-3 🔳 WTR   🔳 WAL 🟠 GRI:?\n                              ❌ SEQ:?\n'));
   assert.equal(result.stdout.includes('🟡 SEQ:?'), false);
 });
 
@@ -466,7 +466,7 @@ test('IT: the counters render on the package line and the command still writes n
 
   assert.equal(result.stderr, '');
   assert.equal(result.status, 0);
-  assert.ok(result.stdout.includes('  * crates/protocol/package-1 ◻️ WTR   ◻️ WAL   🟤 EDU:10 🔴 EXP 🟠 GRI:3\n'));
+  assert.ok(result.stdout.includes('  * crates/protocol/package-1 🔳 WTR   🔳 WAL   🟤 EDU:10 🔴 EXP 🟠 GRI:3\n'));
   assert.match(result.stdout, /\n {30}🟡 SEQ:3 🟢 SMO:2\n/);
   assert.deepEqual([readFileSync(workspace.treeManifestPath, 'utf8'), readFileSync(workspace.allocateManifestPath, 'utf8')], manifestsBefore);
 });
@@ -479,5 +479,5 @@ test('IT: the workspace-stage marks precede the pipeline fields on every package
   assert.equal(result.status, 0);
   const pathLines = result.stdout.split('\n').filter((line) => line.includes('crates/protocol/package-'));
   assert.equal(pathLines.length, 3);
-  for (const line of pathLines) assert.match(line, /◻️ WTR ◻️ WAL$/);
+  for (const line of pathLines) assert.match(line, /🔳 WTR 🔳 WAL$/);
 });

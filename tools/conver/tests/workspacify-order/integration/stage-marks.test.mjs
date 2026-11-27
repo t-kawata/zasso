@@ -1,3 +1,4 @@
+// [::TICKET::] PX-461 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-461 --for-spec --no-implementation-order`.
 // PX-309 @verifies C006
 // The command a reader runs must print the same eight fields the model carries.
 import { test } from 'node:test';
@@ -44,7 +45,7 @@ function workspace(t, { artifacts }) {
 test('C006 run.mjs prints both generations and the three downstream marks', (t) => {
   const materialized = workspace(t, { artifacts: true });
   const output = execFileSync(process.execPath, [RUN], { cwd: materialized.root, encoding: 'utf8' });
-  assert.match(output, /◻️ WTR +◻️ WAL +🟤 EDU:3 🔴 EXP +🟠 GRI:2$/m);
+  assert.match(output, /🔳 WTR +🔳 WAL +🟤 EDU:3 🔴 EXP +🟠 GRI:2$/m);
   assert.match(output, /^ {30}🟡 SEQ:2 🟢 SMO:4 🔵 GRA:3 🟣 BOU:2 ⚫️ SPL:1$/m);
 });
 
@@ -52,6 +53,6 @@ test('C006 run.mjs omits the downstream marks when the artifacts are absent', (t
   const materialized = workspace(t, { artifacts: false });
   const output = execFileSync(process.execPath, [RUN], { cwd: materialized.root, encoding: 'utf8' });
   assert.doesNotMatch(output, /GRA|BOU|SPL/);
-  assert.match(output, /◻️ WTR +◻️ WAL +🟤 EDU:3 🔴 EXP +🟠 GRI:2$/m);
+  assert.match(output, /🔳 WTR +🔳 WAL +🟤 EDU:3 🔴 EXP +🟠 GRI:2$/m);
   assert.match(output, /^ {30}🟡 SEQ:2 🟢 SMO:4$/m);
 });

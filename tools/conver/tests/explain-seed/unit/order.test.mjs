@@ -1,3 +1,4 @@
+// [::TICKET::] PX-461 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-461 --for-spec --no-implementation-order`.
 // PX-224 @verifies C001
 // PX-224 @verifies C002
 // PX-224 @verifies C003
@@ -40,10 +41,10 @@ const FOCUS_CAPTURE = [
   '# explain-seed-fixture implementation order — 2 dirs / 2 levels / 1 dependencies',
   '',
   '<level 0>',
-  '  * crates/protocol/alpha ◻️ WTR ◻️ WAL',
+  '  * crates/protocol/alpha 🔳 WTR 🔳 WAL',
   '',
   '<level 1>',
-  '  * crates/protocol/beta ◻️ WTR ◻️ WAL',
+  '  * crates/protocol/beta 🔳 WTR 🔳 WAL',
   '',
   'critical chain   alpha → beta',
   RULE,

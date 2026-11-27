@@ -1,3 +1,4 @@
+// [::TICKET::] PX-461 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-461 --for-spec --no-implementation-order`.
 // PX-393 @verifies C004
 // PX-393 @verifies C005
 // PX-393 @verifies C007
@@ -92,10 +93,11 @@ test('C004 each column is the widest paired field, and both rows start at markCo
   assert.equal(layout.columns[4].width, 5);
 
   const lines = renderPlan(model).split('\n');
+  assert.ok(!lines.some((line) => line.includes('◻️')), 'the ambiguous square never reaches the plan');
   const pathIndex = lines.findIndex((line) => line.includes('crates/protocol/package-1'));
-  assert.match(lines[pathIndex], /◻️ WTR   ◻️ WAL    🟤 EDU:3 🔴 EXP   🟠 GRI:3/);
+  assert.match(lines[pathIndex], /🔳 WTR   🔳 WAL    🟤 EDU:3 🔴 EXP   🟠 GRI:3/);
   assert.match(lines[pathIndex + 1], /🟡 SEQ:3 🟢 SMO:20 🔵 GRA:1 🟣 BOU:1 ⚫️ SPL:1/);
-  assert.equal(columnOf(lines[pathIndex], '◻️'), model.markColumn);
+  assert.equal(columnOf(lines[pathIndex], '🔳'), model.markColumn);
   assert.equal(columnOf(lines[pathIndex + 1], '🟡'), model.markColumn);
   assert.equal(columnOf(lines[pathIndex], '🟤'), columnOf(lines[pathIndex + 1], '🔵'));
   assert.equal(columnOf(lines[pathIndex], '🔴'), columnOf(lines[pathIndex + 1], '🟣'));
@@ -238,8 +240,10 @@ test('C002 invariant: the ten pipeline fields fill exactly two rows of five', ()
   assert.equal(FIELD_SEQUENCE.length % FIELD_COLUMNS, 0);
 });
 
-test('C003 invariant: the white medium square measures two columns like every grid glyph', () => {
-  assert.equal(displayWidth('◻️'), 2);
+test('C003 invariant: the white square button measures two columns like every grid glyph', () => {
+  // U+25FB is East Asian Ambiguous and some terminals draw it in one column, so the
+  // grid uses U+1F533, whose Emoji_Presentation is two columns by default.
+  assert.equal(displayWidth('🔳'), 2);
   assert.equal(displayWidth('⚫️'), 2);
   assert.equal(displayWidth('⚪️'), 2);
 });

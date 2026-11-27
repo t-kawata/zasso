@@ -1,3 +1,4 @@
+// [::TICKET::] PX-461 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-461 --for-spec --no-implementation-order`.
 // PX-309 @verifies C006
 // The line reports the two generation counters and the three downstream artifacts in
 // pipeline order. A package with no downstream artifact keeps the earlier fields and
@@ -53,14 +54,14 @@ function packageBlock(model) {
 // [::TICKET::] PX-459 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-459 --for-spec --no-implementation-order`.
 test('C006 the eight fields render in pipeline order across the two grid rows', (t) => {
   const block = packageBlock(modelFor(t, { artifacts: true }));
-  assert.equal(block[0], '  * crates/protocol/package-1 ◻️ WTR   ◻️ WAL   🟤 EDU:3 🔴 EXP   🟠 GRI:2');
+  assert.equal(block[0], '  * crates/protocol/package-1 🔳 WTR   🔳 WAL   🟤 EDU:3 🔴 EXP   🟠 GRI:2');
   assert.match(block[1], /^ {30}🟡 SEQ:2 🟢 SMO:4 🔵 GRA:3 🟣 BOU:2 ⚫️ SPL:1$/);
   assert.match(block[2], /^ {30}⚪️ TICKETS: \[ \] 0\/0$/);
 });
 
 test('C006 a package without downstream artifacts acquires no trailing marks', (t) => {
   const block = packageBlock(modelFor(t, { artifacts: false }));
-  assert.equal(block[0], '  * crates/protocol/package-1 ◻️ WTR   ◻️ WAL   🟤 EDU:3 🔴 EXP 🟠 GRI:2');
+  assert.equal(block[0], '  * crates/protocol/package-1 🔳 WTR   🔳 WAL   🟤 EDU:3 🔴 EXP 🟠 GRI:2');
   assert.match(block[1], /^ {30}🟡 SEQ:2 🟢 SMO:4$/);
 });
 

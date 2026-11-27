@@ -72636,6 +72636,106 @@
           "rfcDiscrepancies": [],
           "completedAt": "2026-11-27",
           "reviewed_at": "2026-11-27T08:02:55.804Z"
+        },
+        {
+          "id": 461,
+          "phaseId": -1,
+          "status": "reviewed",
+          "title": "Use a width-stable square glyph for the WTR/WAL marks",
+          "specPath": "~/shyme/zasso/tools/conver/specs/PX-461.md",
+          "background": "### Goal\nReplace the WTR and WAL marks' square glyph from `◻️` (U+25FB WHITE MEDIUM SQUARE + U+FE0F) with `🔳` (U+1F533 WHITE SQUARE BUTTON), so the fixed-width order grid keeps its two-column glyph assumption on terminals that render U+25FB as one column.\n\n### Purpose\nThe renderer aligns every cell by assuming each glyph occupies two terminal columns. U+25FB is East Asian Ambiguous; even with VS16 many terminals draw it in one column, so the row shifts left by one and the space after the glyph visually disappears. U+1F533 has Emoji_Presentation=Yes and measures two columns in both the project displayWidth and string-width, so the alignment is stable.\n\n### Motivation\nThe user reported that `◻️ WTR   ◻️ WAL` renders as `◻️WTR   ◻️WAL` and breaks the whole grid. Raw output still contains the space, so the defect is a width disagreement between the terminal and the renderer, not a missing space.\n\n### Constraints\n- Change only the two WTR/WAL glyph constants; keep the labels WTR/WAL, the field order, the column widths and every other glyph unchanged.\n- Do not edit historical specs (specs/PX-459.md records the old glyph on purpose).\n- Update every exact-output fixture and the glyph-width test in one coordinated Red step.\n- No new dependency, configuration or CLI argument.",
+          "scope": [
+            "**Scope of changes:**\n- `.claude/scripts/workspacify-order/lib/pipeline-cells.mjs`: set `WTR_GLYPH` and `WAL_GLYPH` to `🔳` (U+1F533); `WTR_TEXT`/`WAL_TEXT` stay `WTR`/`WAL`.\n- `tests/workspacify-order/**`: replace every recorded `◻️ WTR` / `◻️ WAL` with `🔳 WTR` / `🔳 WAL`; update the glyph-width test to assert `🔳` measures two columns and that no `◻️` remains in the rendered plan.\n- `tests/explain-seed/unit/order.test.mjs`: the recorded focus capture gains the new glyph.\n- No README change: the order README does not name the glyph. Historical specs are not edited.",
+            "**Out of scope (intentionally excluded):**\n- Replacing the other pipeline glyphs; they are Emoji_Presentation glyphs and already measure two columns.\n- Changing the grid layout, column widths or the two-row split.\n- Making the renderer detect terminal-specific widths at runtime; the fix is to use a width-stable glyph.\n- Editing installed copies; the installer owns propagation.",
+            "**Affected areas:**\n- Every workspacify-order plan line and the explain-seed recorded order; exact-output tests move in one coordinated change.\n- No runtime logic, data schema or performance impact: one constant pair and test bytes."
+          ],
+          "testUnit": [
+            "UT: [Normal] C001 — `renderPlan` prints `🔳 WTR` and `🔳 WAL` before the EDU cell on every package line.",
+            "UT: [Normal] C001 — `displayWidth('🔳')` is 2, and the rendered plan contains no `◻️`.",
+            "UT: [Normal] C002 — the field order, labels, column widths and every other glyph are unchanged.",
+            "UT: [Error] C001 — a workspace root missing one manifest still omits that mark and keeps the other as `🔳`.",
+            "UT: [Boundary] C002 — exact-output fixtures for zero-field, explained, grill-unknown and mixed ledgers all carry the new glyph.",
+            "UT: [Contract] C001 precondition — The WTR and WAL cells carry the glyph 🔳 (U+1F533). C001 postcondition — displayWidth(🔳) is 2 and every package line prints 🔳 WTR / 🔳 WAL at the same display columns as the other two-column glyphs.",
+            "UT: [Contract] C002 precondition — The plan is rendered with any combination of present and absent pipeline fields. C002 postcondition — Only the WTR/WAL glyph changes; labels, field order, column widths and every other glyph are byte-identical. C002 invariant — The exact-output fixtures for zero-field, explained and grill-unknown packages all agree on the new glyph.",
+            "UT: [Acceptance] Happy path — run.mjs prints 🔳 WTR   🔳 WAL and the row aligns on a terminal that renders U+25FB as one column.",
+            "UT: [Acceptance] Edge case — Every exact-output fixture and the recorded explain-seed capture carry 🔳, and no ◻️ remains in rendered output."
+          ],
+          "testIntegration": [
+            "IT: [Integration point] C001 — the real `run.mjs` stdout for the three-package fixture matches the recorded plan with `🔳`.",
+            "IT: [Verification] C002 — the explain-seed focus capture and stage-marks regexes agree on the new glyph.",
+            "IT: [Prerequisites] the existing workspacify-order and explain-seed fixtures under temporary directories."
+          ],
+          "testExceptions": [],
+          "default_files": [
+            ".claude/scripts/workspacify-order/lib/pipeline-cells.mjs",
+            "tests/workspacify-order/unit/render.test.mjs",
+            "tests/workspacify-order/unit/render-grid.test.mjs",
+            "tests/workspacify-order/unit/render-generations.test.mjs",
+            "tests/workspacify-order/unit/render-pipeline-counts.test.mjs",
+            "tests/workspacify-order/integration/run.test.mjs",
+            "tests/workspacify-order/integration/stage-marks.test.mjs",
+            "tests/explain-seed/unit/order.test.mjs"
+          ],
+          "acceptanceCriteria": [
+            "[Happy path] `run.mjs` prints `🔳 WTR   🔳 WAL` and the row aligns on a terminal that renders U+25FB as one column.",
+            "[Error case] A missing manifest omits only its own mark; the other stays `🔳`.",
+            "[Edge case] Every exact-output fixture and the recorded explain-seed capture carry `🔳`, and no `◻️` remains in rendered output."
+          ],
+          "contracts": [
+            {
+              "id": "C001",
+              "sourceEdge": "WTR/WAL glyph -> two-column grid",
+              "precondition": "The WTR and WAL cells carry the glyph `🔳` (U+1F533).",
+              "postcondition": "`displayWidth('🔳')` is 2 and every package line prints `🔳 WTR` / `🔳 WAL` at the same display columns as the other two-column glyphs.",
+              "invariant": "No rendered plan contains `◻️`."
+            },
+            {
+              "id": "C002",
+              "sourceEdge": "glyph replacement -> unchanged surrounding surface",
+              "precondition": "The plan is rendered with any combination of present and absent pipeline fields.",
+              "postcondition": "Only the WTR/WAL glyph changes; labels, field order, column widths and every other glyph are byte-identical.",
+              "invariant": "The exact-output fixtures for zero-field, explained and grill-unknown packages all agree on the new glyph."
+            }
+          ],
+          "notes": "- Implementation steps: 1) change WTR_GLYPH/WAL_GLYPH to `🔳` in pipeline-cells.mjs; 2) replace the recorded glyph in workspacify-order and explain-seed fixtures; 3) update the glyph-width test to `🔳` and add a no-`◻️` assertion; 4) run the impact-set tests.\n- Risks: the exact-output fixtures move together; a piecemeal update leaves a red suite.\n- Caveats: the fix assumes `🔳` renders two columns; this is the Emoji_Presentation default and matches both width libraries.\n- Open items: none.\n- Future improvements: a render-time width probe could detect terminal disagreement, but the project deliberately avoids terminal-specific logic.\n- Law: not applicable — the changed paths are `.claude/scripts/workspacify-order/lib` and tests; no `crates/**` interface role.\n- Crime/stub scan: 0 crimes, 0 stubs, 0 incomplete findings in the target.\n- Plan: Red updates every exact-output fixture plus a width assertion; Green changes the two constants; Refactor keeps the glyph in the named constants.\n\nImplementation summary (PX-461):\n- Changed files: .claude/scripts/workspacify-order/lib/pipeline-cells.mjs; tests/workspacify-order/unit/{render,render-grid,render-generations}.test.mjs; tests/workspacify-order/integration/{run,stage-marks}.test.mjs; tests/explain-seed/unit/order.test.mjs.\n- Key changes: WTR_GLYPH/WAL_GLYPH -> `🔳`; exact-output fixtures and code-point assertion moved to U+1F533; added a no-`◻️` assertion and a why-comment.\n- Tests: workspacify-order full suite + explain-seed order 210 pass, 0 fail, 0 skipped.\n- Quality checks: 0 issues. Crime scan 0. Stub scan 0. Incomplete-implementation scan 0.\n- Build: tsc clean; dist/conver.js builds; --version runs.\n- Note: the background release commit v0.24.846 committed the pre-existing WIP and the VERSION bump separately; it is not part of PX-461.\n\nReview report (2026-11-27):\n- Static quality check: passed (0 issues).\n- Translatability: no issues; the glyph stays in the named constants and the comment states why U+25FB was rejected.\n- Annotations: verify exit 0; zero AMBIGUOUS markers.\n- Tests: workspacify-order full suite + explain-seed order 210 pass, 0 fail, 0 skipped.\n- Build: tsc clean; dist/conver.js builds; --version runs.\n- Crime scan 0; stub scan 0; no-excuse gate pass.\n- Working tree: PX-461 only. The background release commit v0.24.846 committed the pre-existing WIP and VERSION bump separately and is not part of this ticket.",
+          "invariants": "- [Normal establishment] With both manifests present, every package line begins `🔳 WTR   🔳 WAL` at markColumn and the ten pipeline fields follow in pipeline order.\n- [Error invariant] A missing manifest yields a null cell for that mark only; the other mark stays `🔳` and rendering stays total.\n- [Internal state invariant] The glyph is stated once in `WTR_GLYPH`/`WAL_GLYPH`; the renderer never hardcodes a square.\n- [Boundary invariant] `displayWidth('🔳')` is 2, no rendered plan contains `◻️`, and no line carries trailing whitespace.",
+          "instrumentation": "Static quality check: passed\nTranslatability: no issues\nTests: 210 pass",
+          "investigation": "- Glyph source: `WTR_GLYPH = '◻️'` and `WAL_GLYPH = '◻️'` live in `.claude/scripts/workspacify-order/lib/pipeline-cells.mjs` and are re-exported by `render.mjs`.\n- Width rule: `displayWidth` in `lib/display-width.mjs` returns 2 when the grapheme contains U+FE0F or a ZWJ; U+25FB alone is 1. Measured: `displayWidth('◻️')=2`, `string-width('◻️')=2`, but U+25FB is East Asian Ambiguous and many terminals draw the sequence in one column.\n- Candidate widths: `displayWidth('🔳')=2` and `string-width('🔳')=2`; U+1F533 has Emoji_Presentation=Yes. U+2B1C/U+2B1B disagree between the project rule (1) and string-width (2) and are rejected.\n- Tests pinning the old glyph: `tests/explain-seed/unit/order.test.mjs:43,46`; `tests/workspacify-order/integration/run.test.mjs` (many exact plans); `tests/workspacify-order/unit/render-grid.test.mjs` asserts the glyph width; `tests/workspacify-order/unit/render*.test.mjs` exact blocks.\n- Unaffected surfaces: the TICKETS row, critical chain, focus block and the conver header bracket do not use this glyph.\n- Historical specs: `specs/PX-459.md` records `◻️` as the state at that ticket; it is not edited.",
+          "boyScoutPlan": "- Keep the glyph in the named constants; no literal square appears in the renderer.\n- Add an explicit width-stability assertion for `🔳` and a no-`◻️` assertion on the rendered plan, because a passing exact-output test alone cannot prove the terminal width property.\n- Keep the two marks on the same constant value and document why U+25FB was rejected.\n- Update every affected exact-output fixture in one Red step so the suite never half-migrates.",
+          "created_at": "2026-11-27",
+          "updated_at": "2026-11-27",
+          "targetStubs": "verified_empty",
+          "targetCrimes": "verified_empty",
+          "made_at": "2026-11-27T08:10:15.275Z",
+          "planTestCode": [
+            "UT: [Normal] C001 — width-stable glyph and no old glyph\n```js\n// @verifies C001\nassert.equal(displayWidth('🔳'), 2);\nconst plan = renderPlan(model);\nassert.ok(plan.includes('🔳 WTR   🔳 WAL'));\nassert.ok(!plan.includes('◻️'));\n```",
+            "UT: [Normal] C001 — the mark sits before EDU at the expected column\n```js\n// @verifies C001\nconst row1 = plan.split('\\n').find((line) => line.includes('package-1'));\nassert.match(row1, /package-1 🔳 WTR {2,}🔳 WAL +🟤 EDU:\\d+/);\nassert.equal(row1.indexOf('🔳'), row1.indexOf('🔳'));\n```",
+            "UT: [Normal] C002 — only the glyph moves\n```js\n// @verifies C002\nassert.equal(FIELD_SEQUENCE.join(','), 'wtr,wal,edu,exp,gri,seq,smo,gra,bou,spl');\nassert.ok(plan.includes('🟤 EDU:'));\nassert.ok(plan.includes('🔴 EXP'));\nassert.ok(plan.includes('🟡 SEQ:'));\n```",
+            "UT: [Error] C001 — a missing allocate manifest keeps only the tree mark\n```js\n// @verifies C001\nconst withoutAllocate = renderPlan(modelMissingAllocate);\nassert.match(withoutAllocate, /🔳 WTR/);\nassert.doesNotMatch(withoutAllocate, /🔳 WAL/);\n```",
+            "UT: [Boundary] C002 — every rendered line is free of the old glyph\n```js\n// @verifies C002\nfor (const line of plan.split('\\n')) {\n  assert.doesNotMatch(line, /◻️/);\n}\n```"
+          ],
+          "planned_at": "2026-11-27T08:10:38.198Z",
+          "changes": [
+            {
+              "before": "WTR/WAL used `◻️` (U+25FB + U+FE0F); U+25FB is East Asian Ambiguous and some terminals draw it in one column.",
+              "after": "WTR/WAL use `🔳` (U+1F533), whose Emoji_Presentation is two columns; displayWidth and string-width both report 2.",
+              "description": "Width-stable WTR/WAL glyph"
+            },
+            {
+              "before": "Every exact-output fixture and the glyph-width test pinned `◻️`.",
+              "after": "The fixtures and the glyph-width test use `🔳`; a rendered-plan assertion rejects any `◻️`.",
+              "description": "Fixture migration and old-glyph guard"
+            },
+            {
+              "before": "The constants had no note explaining why the old square was rejected.",
+              "after": "The comment states the U+25FB ambiguity and the U+1F533 choice.",
+              "description": "Why-comment for the glyph"
+            }
+          ],
+          "done_at": "2026-11-27T08:13:17.915Z",
+          "rfcDiscrepancies": [],
+          "completedAt": "2026-11-27",
+          "reviewed_at": "2026-11-27T08:13:46.722Z"
         }
       ]
     },

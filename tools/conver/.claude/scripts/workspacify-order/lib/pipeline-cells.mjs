@@ -45,10 +45,17 @@ export const GRAPH_GLYPH = '🔵';
 export const BOUNDIFY_GLYPH = '🟣';
 export const SPLIT_GLYPH = '⚫️';
 
-/** The two workspace-stage marks: the root manifests the first two commands wrote. */
-export const WTR_GLYPH = '◻️';
+/**
+ * The two workspace-stage marks: the root manifests the first two commands wrote.
+ *
+ * The glyph is U+1F533, whose Emoji_Presentation is two columns by default. U+25FB
+ * (the previous square) is East Asian Ambiguous; some terminals draw it in one column,
+ * which shifts the fixed-width grid and hides the space after the mark.
+ */
+// [::TICKET::] PX-461 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-461 --for-spec --no-implementation-order`.
+export const WTR_GLYPH = '🔳';
 export const WTR_TEXT = 'WTR';
-export const WAL_GLYPH = '◻️';
+export const WAL_GLYPH = '🔳';
 export const WAL_TEXT = 'WAL';
 
 /** The word the explanation field carries: a document mark, not a count. */
