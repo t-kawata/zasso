@@ -206,6 +206,25 @@ function holds(candidate, fileName) {
 }
 
 /**
+ * Whether the workspace root carries the stage-one tree manifest.
+ *
+ * Existence is the whole rule, as it is for the package documents: the file is never
+ * opened, so a zero-byte or half-written manifest counts as present, and a directory
+ * that cannot be read answers false rather than failing a plan that only describes the
+ * workspace.
+ */
+// [::TICKET::] PX-459 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-459 --for-spec --no-implementation-order`.
+export function holdsTreeManifest(root) {
+  return holds(root, TREE_MANIFEST_FILE_NAME);
+}
+
+/** Whether the workspace root carries the stage-two allocate manifest. */
+// [::TICKET::] PX-459 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-459 --for-spec --no-implementation-order`.
+export function holdsAllocateManifest(root) {
+  return holds(root, ALLOCATE_MANIFEST_FILE_NAME);
+}
+
+/**
  * Whether a package directory already carries its explanation document.
  *
  * Existence is the whole rule: the document is never opened, so a zero-byte or half-written

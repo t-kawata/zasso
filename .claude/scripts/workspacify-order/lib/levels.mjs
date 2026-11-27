@@ -14,11 +14,13 @@ import { existsSync, readFileSync } from 'node:fs';
 import { basename, dirname, join, resolve, sep } from 'node:path';
 
 import {
+  holdsAllocateManifest,
   holdsBoundifyArtifact,
   holdsExplanation,
   holdsGraphArtifact,
   holdsRfc,
   holdsSplitArtifact,
+  holdsTreeManifest,
   artifactStem,
   findRootArtifact,
   loadPackageRoles,
@@ -502,6 +504,7 @@ function assertEdgesReferencePackages(packages, edges) {
  * @returns {object} the model the renderer draws from
  */
 // [::TICKET::] PX-228 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-228 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-459 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-459 --for-spec --no-implementation-order`.
 export function buildModel({ root, treeManifest, allocateManifest }) {
 // [::TICKET::] PX-309 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-309 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-269 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-269 --for-spec --no-implementation-order`.
@@ -575,6 +578,12 @@ export function buildModel({ root, treeManifest, allocateManifest }) {
     edu: readRootEduceGeneration(root),
     smo: readRootSmoothGeneration(root),
   };
+  // The first two pipeline stages are root-level. Both manifests are required for the
+  // command to run at all, so a runnable workspace prints both marks on every package.
+  const rootManifests = {
+    tree: holdsTreeManifest(root),
+    allocate: holdsAllocateManifest(root),
+  };
   const grillGenerations = new Map(
     packages.map((pkg) => [pkg.id, readGrillGeneration(join(root, pkg.path))]),
   );
@@ -619,6 +628,7 @@ export function buildModel({ root, treeManifest, allocateManifest }) {
     grilledIds,
     sequenceVerdicts,
     rootCounters,
+    rootManifests,
     grillGenerations,
     distributionGenerations,
     graphifiedIds,
