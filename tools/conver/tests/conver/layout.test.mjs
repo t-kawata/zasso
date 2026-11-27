@@ -232,6 +232,10 @@ test('groupColor returns the seven agreed groups with adjacent colours far apart
   }
 });
 
+test('crystalize is drawn in #FF3D3D', () => {
+  assert.equal(groupColor('crystalize'), '#FF3D3D');
+});
+
 test('stripCommonPrefix removes only a separator-aligned prefix with non-empty remainders', () => {
   assert.deepEqual(stripCommonPrefix(['gaia-api', 'gaia-web']), { prefix: 'gaia-', names: ['api', 'web'] });
   assert.deepEqual(stripCommonPrefix(['pkg.one', 'pkg.two']), { prefix: 'pkg.', names: ['one', 'two'] });

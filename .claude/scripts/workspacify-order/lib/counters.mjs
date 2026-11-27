@@ -1,3 +1,4 @@
+// [::TICKET::] PX-455 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-455 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-282 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-282 --for-spec --no-implementation-order`.
 /**
  * The pipeline counters the implementation order reads.
@@ -14,6 +15,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { generationOf as educeGenerationOfStatus } from '../../educe-sequences/rail/run-state.mjs';
+import { ALLOCATE_MANIFEST_FILE_NAME, TREE_MANIFEST_FILE_NAME } from './workspace.mjs';
 // [::TICKET::] PX-282, PX-285 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-282|PX-285) --for-spec --no-implementation-order`.
 import { readGenerationNumber as readSmoothGenerationNumber } from '../../smooth-sequences/lib/generation.mjs';
 import { readDistributionRecord } from '../../sequences-slice/lib/distribution-record.mjs';
@@ -35,6 +37,29 @@ export const SPLIT_STATUS_SUFFIX = '-SPLIT-Status.json';
 /** The generation a grill opens on every new run. */
 // [::TICKET::] PX-309 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-309 --for-spec --no-implementation-order`.
 export const FIRST_GENERATION = 1;
+
+/** The artifact the explain stage writes once per package. */
+export const EXPLAIN_SEED_FILE_NAME = 'EXPLAIN-RFC-SEED.md';
+
+/**
+ * The workspacify stage is one run when both manifests declare COMPLETE.
+ *
+ * The two manifests are published together by one forward run, so their joint
+ * completion is the whole count a non-repeatable stage needs: 1 means done, 0
+ * means not done. An incomplete or unreadable manifest still owes the run, and
+ * no run history is consulted.
+ */
+// [::TICKET::] PX-456 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-456 --for-spec --no-implementation-order`.
+export function readWorkspacifyRuns(root) {
+  const tree = readJsonFile(join(root, TREE_MANIFEST_FILE_NAME)).value;
+  const allocate = readJsonFile(join(root, ALLOCATE_MANIFEST_FILE_NAME)).value;
+  return tree?.status === 'COMPLETE' && allocate?.status === 'COMPLETE' ? 1 : 0;
+}
+
+/** The explain stage is one run when its artifact exists. */
+export function readExplainRuns(packageDirectory) {
+  return existsSync(join(packageDirectory, EXPLAIN_SEED_FILE_NAME)) ? 1 : 0;
+}
 
 /** The status fields that carry the two generations. */
 // [::TICKET::] PX-309 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-309 --for-spec --no-implementation-order`.

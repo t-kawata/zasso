@@ -58,6 +58,15 @@ const FROZEN_BASENAMES = [
 ];
 
 /**
+ * The canonical current specification name.
+ *
+ * The seed's `source_spec.path` is the authority; this constant keeps a workspace
+ * whose seed is unreadable default-deny against the current name as well as the
+ * legacy versioned names.
+ */
+const SPECIFICATION_BASENAME = 'SYSTEM-DESIGN.md';
+
+/**
  * The legacy specification name, kept only for a workspace that has no readable seed.
  *
  * The authority is the seed's `source_spec.path`; this pattern is the fallback that
@@ -293,7 +302,7 @@ function readCrossPackageEvidence(evidencePath, target) {
  * @param {{packageDir: string|null, evidencePath: string|null}} write
  * @returns {{ allowed: boolean, rule: string, detail: string }}
  */
-// [::TICKET::] PX-359, PX-360, PX-361, PX-369, PX-371 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-359|PX-360|PX-361|PX-369|PX-371) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-359, PX-360, PX-361, PX-369, PX-371, PX-1 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-359|PX-360|PX-361|PX-369|PX-371|PX-1) --for-spec --no-implementation-order`.
 function classifyPath(target, specification, write = { packageDir: null, evidencePath: null }) {
   const name = basename(target);
   const generated = GENERATED_BASENAMES.includes(name);
@@ -321,7 +330,10 @@ function classifyPath(target, specification, write = { packageDir: null, evidenc
   const resolvedTarget = resolve(target);
   const sealedBySeed = specification !== null
     && (name === basename(specification.path) || resolvedTarget === specification.resolved);
-  if (FROZEN_BASENAMES.includes(name) || sealedBySeed || LEGACY_SPECIFICATION_BASENAME_PATTERN.test(name)) {
+  if (FROZEN_BASENAMES.includes(name)
+      || sealedBySeed
+      || name === SPECIFICATION_BASENAME
+      || LEGACY_SPECIFICATION_BASENAME_PATTERN.test(name)) {
     return { allowed: false, rule: 'frozen', detail: `a stage-1 input; ${OWNING_RFC_ALTERNATIVE}` };
   }
   return { allowed: false, rule: 'unknown', detail: UNKNOWN_RULE_DETAIL };

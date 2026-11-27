@@ -19,7 +19,7 @@ const GROUP_COLOURS = Object.freeze({
   structure: '#7C3AED',
   implementation: '#EA580C',
   convergence: '#FDE047',
-  shipping: '#22C55E',
+  shipping: '#FF3D3D',
   evolution: '#EC4899',
 });
 

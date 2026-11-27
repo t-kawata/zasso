@@ -142,6 +142,47 @@ export function computeAllocateSelfHash(allocateManifest) {
   return sha256Hex(Buffer.from(canonicalSerialize(copy), 'utf8'));
 }
 
+/** The stage-1 manifest the allocate manifest links to. */
+export const TREE_MANIFEST_FILE_NAME = 'WORKSPACIFY-TREE-MANIFEST.json';
+
+/**
+ * Re-seal the allocate manifest after the workspace identity changed.
+ *
+ * The stage-2 manifest records the stage-1 hash, the source specification path and
+ * hash, and one digest per seed. A rename changes all four; recomputing them here
+ * keeps the writer in the owner module instead of letting a migration script
+ * hand-assemble the canonical form. The input is not mutated.
+ *
+ * @param {object} allocateManifest — the current allocate manifest
+ * @param {{ workspaceRoot: string, treeManifestPath?: string }} options
+ * @returns {object} a re-sealed copy
+ */
+export function resealAllocateManifest(allocateManifest, { workspaceRoot, treeManifestPath = null } = {}) {
+// [::TICKET::] PX-1 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-1 --for-spec --no-implementation-order`.
+  if (typeof workspaceRoot !== 'string' || workspaceRoot.length === 0) {
+    throw new TypeError('resealAllocateManifest needs a workspaceRoot');
+  }
+  const resolvedTreeManifestPath = treeManifestPath ?? path.join(workspaceRoot, TREE_MANIFEST_FILE_NAME);
+  const tree = JSON.parse(readFileSync(resolvedTreeManifestPath, 'utf8'));
+  const next = JSON.parse(JSON.stringify(allocateManifest));
+  next.input_tree_manifest = {
+    ...(next.input_tree_manifest ?? {}),
+    path: path.basename(resolvedTreeManifestPath),
+    hash: tree?.integrity?.manifest_hash ?? null,
+    spec: {
+      path: tree?.input?.spec_path ?? null,
+      sha256: tree?.input?.source_hash ?? null,
+    },
+  };
+  next.seed_index = (next.seed_index ?? []).map((entry) => ({
+    ...entry,
+    sha256: sha256Hex(readFileSync(path.join(workspaceRoot, entry.path))),
+  }));
+  next.integrity = { ...(next.integrity ?? {}), manifest_hash: '' };
+  next.integrity.manifest_hash = computeAllocateSelfHash(next);
+  return next;
+}
+
 /** Canonical text of the manifest, newline terminated. */
 export function renderAllocateManifest(allocateManifest) {
   return `${JSON.stringify(allocateManifest, null, 2)}\n`;

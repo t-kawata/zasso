@@ -53,6 +53,12 @@ const EXIT_FAILURE = 1;
 // [::TICKET::] P24-1 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P24-1 --for-spec --no-implementation-order`.
 const COMMENT_TOKEN_BY_EXTENSION = Object.freeze({ ".py": "#", ".rb": "#" });
 const DEFAULT_COMMENT_TOKEN = "//";
+
+// A workspace-wide migration can produce a diff far larger than the previous 64 MiB
+// ceiling (generated design artifacts and evidence are multi-megabyte text files), so the
+// annotator must not silently report "no changes" when the diff is merely large.
+const GIT_DIFF_MAX_BUFFER = 512 * 1024 * 1024;
+const GIT_DIFF_TIMEOUT_MS = 120000;
 // A marker is a comment line, not a string literal that happens to contain the
 // word: the annotator's own tests assert the literal and must not read as one.
 const AMBIGUOUS_MARKER_PATTERN = /^\s*(?:\/\/|#)\s*\[::AMBIGUOUS::\]/;
@@ -479,7 +485,7 @@ function processFile(filePath, ticketKey, opts) {
  * filter by extension, annotate each file at its changed definitions.
  * Returns a summary object.
  */
-// [::TICKET::] PX-62, PX-63, PX-114 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-62|PX-63|PX-114) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-62, PX-63, PX-114, PX-1 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-62|PX-63|PX-114|PX-1) --for-spec --no-implementation-order`.
 function annotateSourceFiles(cwd, ticketKey, opts) {
   const verbose = opts && opts.verbose;
 
@@ -488,7 +494,7 @@ function annotateSourceFiles(cwd, ticketKey, opts) {
   try {
     const stdout = execFileSync("git", [
       "diff", "-U0", "--diff-filter=AM",
-    ], { cwd, encoding: "utf8", timeout: 10000, maxBuffer: 64 * 1024 * 1024, stdio: ["pipe", "pipe", "pipe"] });
+    ], { cwd, encoding: "utf8", timeout: GIT_DIFF_TIMEOUT_MS, maxBuffer: GIT_DIFF_MAX_BUFFER, stdio: ["pipe", "pipe", "pipe"] });
     perFileChangedLines = parseGitDiffUnified0(stdout);
   } catch (e) {
     // Not a git repo or git error
@@ -554,7 +560,7 @@ function annotateSourceFiles(cwd, ticketKey, opts) {
  * Verify that all changed source files have a ticket-key annotation at each
  * changed definition. Returns a verification report object.
  */
-// [::TICKET::] PX-62, PX-63, PX-114, PX-415, PX-416 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-62|PX-63|PX-114|PX-415|PX-416) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-62, PX-63, PX-114, PX-415, PX-416, PX-1 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-62|PX-63|PX-114|PX-415|PX-416|PX-1) --for-spec --no-implementation-order`.
 function verifyAnnotations(cwd, ticketKey, opts) {
   const verbose = opts && opts.verbose;
 
@@ -563,7 +569,7 @@ function verifyAnnotations(cwd, ticketKey, opts) {
   try {
     const stdout = execFileSync("git", [
       "diff", "-U0", "--diff-filter=AM",
-    ], { cwd, encoding: "utf8", timeout: 10000, maxBuffer: 64 * 1024 * 1024, stdio: ["pipe", "pipe", "pipe"] });
+    ], { cwd, encoding: "utf8", timeout: GIT_DIFF_TIMEOUT_MS, maxBuffer: GIT_DIFF_MAX_BUFFER, stdio: ["pipe", "pipe", "pipe"] });
     perFileChangedLines = parseGitDiffUnified0(stdout);
   } catch (e) {
     if (verbose) console.error(`[annotate-verify] git diff failed: ${e.message}`);

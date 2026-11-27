@@ -33,6 +33,7 @@ The authority is the `type` field of the nearest `package.json`, and the `.mjs` 
 | `shared-obligations` | `module` |
 | `smooth-sequences` | `module` |
 | `spec-formula` | `module` |
+| `spec-rename` | `module` |
 | `tickets` | `commonjs` |
 | `utils` | `commonjs` |
 | `workspacify-allocate` | `module` |
