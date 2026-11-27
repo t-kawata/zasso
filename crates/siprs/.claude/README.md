@@ -1,0 +1,1478 @@
+# conver — RFC収束型5層ループ開発パイプライン 
+
+conver は、**「正典 RFC へ実装を収束させる」** と同時に、**「正典自体を安全に進化させ続ける」** ことを可能にする、5つの層から成る開発パイプラインです。**適合ループ**（第五層・workspacify）が、続く4つのループ（上流・実装・出荷・進化）を包み込みます。
+
+## なぜ必要か — 変化し続けるビジネスと「再投資可能性」
+
+ソフトウェアは「一度作って完成」ではありません。市場は刻一刻と変化し、ビジネスはその変化に**進化という形で常に適応**し続けなければなりません。機能追加・方向転換・新要件への対応——これらはすべて「開発への再投資」です。
+
+しかし長期にわたる開発で最も恐ろしいのは、**「変化がシステムを矛盾だらけにする」**ことです。過去の設計判断がどこに記録されたか分からなくなり、実装が設計から乖離し、テストが嘘をつき始める——そうなると再投資はリスクにしかならず、ビジネスは変化を諦めるか、破壊的な作り直しを強いられます。
+
+conver はこの問題を、**「正典 RFC」を中心とした4つのループ**と、その外側で4つのループの前提を整える**適合ループ**で解決します。適合ループはワークスペースをパッケージに分割し、**4つのループをパッケージディレクトリごとに再実体化**します。
+
+- **適合ループ（第五層・workspacify）**: 入力（空＋仕様書、または既存実装）を、4つのループが回る形へ適合させる。既存実装は逆回転で、空のプロジェクトは順回転で、同じ終端状態へ到達する。分割後は安全な実装順を示し、仕様書から全シーケンス・全オペレーションの要求台帳を作る
+- **上流ループ（分解）**: AIと人間が共同で 正典 RFC を書き、全パッケージ横断の受理証明を得てから、論理グラフ化し、ディレクトリ境界を決め、チケットに分解する
+- **実装ループ（収束）**: AIが全チケットを自動実装し、RFC 設計とのギャップを計測・解消して収束させる
+- **出荷ループ（商品化判定）**: 「ユーザーにとっての使い方がユーザーにとって素敵か」という視点から実装を解析・検証し、不足（RESIDUE）を洗い出す。`/crystalize-readme` の収束条件は「全セクションが完全な記述または RESIDUE」「marker 文法が正常」「residue レジストリが整合」であり、RESIDUE が残っていてもコマンドは収束する。RESIDUE がゼロになり、「ユーザーにとって素敵な使い方」が README.md として書き上がり、実装とテストがそれを満たすことを外側の出荷判定が確認した状態を「出荷」とする。
+- **進化ループ（再投資）**: 正典 RFC・グラフ・ディレクトリ構造・チケットを「差分」として矛盾なく進化させ、新たなチケットを生み出す。ビジネスの再投資と進化・適応を安全に進めるための装置である。
+- **API 整合ゲート**: `verify-api-consistency.mjs --workspace <root>` が全パッケージ RFC の Rust コードフェンスを宣言と使用として読み、パッケージ跨ぎの未定義シンボル・重複宣言・引数 arity・ジェネリック arity・種別不一致・未宣言依存を検出する。読めない構文は `UNPARSED_SURFACE` として advisory 報告し、黙って飛ばさない。smooth の closure では blocking、drill では P2 residue。跨ぎ編集は `guard-edit-surface.js --allow-cross-package=<evidence.json>` が必須で、編集対象パッケージの全ゲート exit 0 を証明する。
+
+**すべての設計判断は正典 RFC に集約され、実装はそこへ機械的に収束します。** そして正典自体を変化させる時も、グラフ・ディレクトリ構造・チケット・実装・テストが**矛盾なく連動して進化**するため、「安全な連続性を失わないビジネス上の再投資可能性」が技術的・物理的に保証されます。
+
+---
+
+## 全体像 — 5層ループが出荷に至るまで
+
+```mermaid
+flowchart TD
+    L5["適合ループ（第五層・workspacify・人間＋AI 実行）<br/>入力: 空＋仕様書（パターン4） / 既存実装（パターン1・2・3）<br/>/workspacify-reverse → /workspacify-tree<br/>→ /workspacify-allocate<br/>→ 実ディレクトリ ＋ 各パッケージの RFC-SEED.md<br/>workspacify-order: 実装順を表示・検査<br/>/educe-sequences: 全シーケンス・全オペレーションを台帳化<br/>→ 各パッケージの SEQUENCES.md / SEQUENCES.json"]
+    UP["上流ループ（分解・人間＋AI 実行）<br/>各パッケージで /explain-seed → /grill-me-for-rfc<br/>→ 正典 RFC.md<br/>ワークスペースルートで /smooth-sequences（受理証明）<br/>各パッケージで /graphify-rfc → /boundify-graph<br/>→ /split-to-tickets<br/>→ RFC-GRAPH.json → RFC-Dirs-Tree.json<br/>→ Tickets.json"]
+    IM["実装ループ（収束・AI 自動実行）<br/>make → plan → start → review<br/>→ resolve → consolidate → find<br/>→ omission を Tickets.json へマージ<br/>収束するまで再実装"]
+    SH["出荷ループ（商品化判定・人間＋AI 実行）<br/>/crystalize-readme（RFC-GRAPH.json 固定・引数なし）<br/>パッケージ＋ワークスペース README をセクション単位で判定"]
+    EV["進化ループ（再投資・適応・人間＋AI 実行）<br/>/drill-rfc-down<br/>入力: RESIDUE / 自由会話 / 資料<br/>grill → graphify → boundify<br/>→ split → verify<br/>台帳・view を変えたら次の graphify 前に<br/>/smooth-sequences を再実行"]
+
+    L5 -->|パッケージディレクトリごとに<br/>4つのループを再実体化| UP
+    UP --> IM
+    IM -->|find が数ラウンドで収束| SH
+    SH -->|RESIDUE あり<br/>証拠＋実装補強設計を README に残置| EV
+    EV -->|積み増しチケット| IM
+    IM -->|実装が進むと前回の分割に無い<br/>ディレクトリとコードが生まれる<br/>2周目以降は必ずパターン2として再入<br/>プロジェクト全体の健康を保つ| L5
+    SH -->|RESIDUE ゼロ<br/>README.md が完成し、実装とテストが<br/>それを満たす点検を突破| SHIPPED(["出荷"])
+```
+
+| 層（ループ） | 実行主体 | コマンド | 責務 |
+|--------|----------|----------|------|
+| **適合ループ（第五層）** | 人間＋AI（Claude Code 上で実行） | `/workspacify-reverse` → `/workspacify-tree` → `/workspacify-allocate` → `workspacify-order`（実装順の表示・検査） → `/educe-sequences`（要求台帳） | 入力（空＋仕様書 / 既存実装）を4つのループが回る形へ適合させ、**4つのループをパッケージディレクトリごとに再実体化**する。全シーケンス・全オペレーションを台帳化し、安全な実装順を機械的に示す。一周で終わらず、内側が実装を進めるたびに繰り返す |
+| **上流ループ** | 人間＋AI（`/smooth-sequences` は AI 自動実行） | `/explain-seed` → `/grill-me-for-rfc` → `/smooth-sequences` → `/graphify-rfc` → `/boundify-graph` → `/split-to-tickets` | 種の事実と説明 → RFC 設計書の作成 → **全パッケージ横断の受理証明**（列挙・契約・配布の閉包） → 論理グラフ化 → ディレクトリ境界生成 → チケット分解 |
+| **実装ループ** | AI（`conver.js` が自動実行） | `/make-ticket` → `/plan-ticket` → `/start-ticket` → `/review-ticket` → `/resolve-ticket` → `/consolidate-stubs` → `/find-omissions` | チケット実装（冒頭の前提ゲートで依存順を強制） → 品質検証 → 警告・犯罪・スタブ解決 → スタブのチケット単位束ね直し → 契約ギャップ計測 → 収束 |
+| **出荷ループ** | 人間＋AI（`-T` では conver.js が自動実行） | `/crystalize-readme` | 使い方 README をセクション単位で「ユーザーにとって素敵か」の視点で検証し、書けないセクションを RESIDUE として洗い出す。コマンドは全セクション complete|residue・marker 文法正常・residue レジストリ整合で収束する（RESIDUE 0 を待たない）。RESIDUE を `/drill-rfc-down` で実装補強した後、外側の出荷判定が RESIDUE 0 と実装・テストの充足を確認して出荷 |
+| **進化ループ** | 人間＋AI（`-T` では conver.js が自動実行） | `/drill-rfc-down` | `Tickets.json` が存在すれば**引数なしでいつでも実行可能**。README の RESIDUE と SEQUENCES ビューは自動探索され、存在/不在で分岐し、引数は追加資料として後ろに足される。正典RFC・GRAPH・Dirs-Tree・Tickets を差分として矛盾なく進化させ、最後に verify でパッケージ内の貫通（view → 台帳 → GRAPH → 実装ヘッダ → Tickets）を機械検証する。`COMPLETE` は `DRILL-REPORT.json` だけが宣言する |
+
+**進化の入口は、上流ループを通過したかどうかで決まります** — 通過前は `/grill-me-for-rfc` の再実行、通過後は上表の `/drill-rfc-down` です。ループ単位の境界と但し書きは、後述の「/drill-rfc-down — 進化の扉」にある「進化の入口は、上流ループを通過したかどうかで決まる」を参照してください。
+
+---
+
+## 適合ループ — 4つの入口と第五層
+
+### 第五層とは何か
+
+`/workspacify-tree` と `/workspacify-allocate` は、4つのループを**包み込む外殻**です。ループ間の辺ではなく**第五層**にあたります。第五層は「マニフェストが1枚増える」ことではなく、**ワークスペースをパッケージに分割し、4つのループをパッケージディレクトリごとに再実体化する**ことです。
+
+- `RFC-SEED.md` は**全パッケージディレクトリにちょうど1つ**置かれます。これは完成 RFC ではなく `/grill-me-for-rfc` の**種**で、14見出し固定。**§1（Identity/Position）と §2（Coupling Contracts）は機械注入で、AI は書けません**。人間は `/explain-seed` でこの種を先に説明され（事実と説明の2文書）、そこで書いた答えが後段の grill の先行記録になります
+- `Tickets.json` は**その設計文書と同じディレクトリ**に生成されます
+- グラフと Dirs-Tree は**自分の RFC の隣**に座ります
+- **正典 RFC のファイル名は `RFC.md` に固定**です。どのパッケージでも同じ名前で、パッケージ名はファイル名に入りません（ディレクトリの識別子は manifest の `packages[].path` が持ちます）。`/grill-me-for-rfc` はこの名前だけを書き、後段はカレントディレクトリの固定名（`RFC-GRAPH.json` / `RFC-Dirs-Tree.json` / `Tickets.json`）を読み書きします。固定名は引数では変えられません
+- **ワークスペースルート自身がパッケージ（path `.`）**です。ルートも `src/auth` も、自分の `RFC.md` の隣に `RFC-GRAPH.json` と `Tickets.json` を持ちます
+
+### 終端状態 — 4つの入口が到達すべき形
+
+```
+<workspace root>/
+  RFC.md  RFC-GRAPH.json  RFC-Dirs-Tree.json  Tickets.json
+  RFC-{GRAPHIFY,BOUNDIFY,SPLIT}-Status.json           ← ROOT パッケージ自身の4層（7点）
+  WORKSPACIFY-TREE-MANIFEST.json  WORKSPACIFY-ALLOCATE-MANIFEST.json
+  ARCHITECTURE-DELTA.json  DesignTree.json            ← 第五層（4点）
+
+  src/auth/
+    RFC-SEED.md                                       ← 第五層の種
+    RFC.md  RFC-GRAPH.json  RFC-Dirs-Tree.json  Tickets.json
+    RFC-{GRAPHIFY,BOUNDIFY,SPLIT}-Status.json         ← このディレクトリ自身の4層（8点）
+```
+
+ルートに**11点**（4層の7点 ＋ 第五層の4点）、各パッケージに**8点**です。**予約ルート `workspacify/` はこのレイアウトの外にあり、第五層はその中に入りません**（後述）。
+
+**正典 RFC の名前は `RFC.md` に固定**で、パッケージごとに変わりません。このリポジトリの `crates/siprs/RFC-ROOT.md` のような既存の木は**旧名のまま読み取られ**、書き名は `RFC.md` です。
+
+### 4つのパターン — 入口の分類
+
+区別の基準は**ディスク上に既に存在する conver の足場だけ**で、それ以外ではありません。
+
+| # | 入力プロジェクト | 入口 | 起きること |
+|---|---|---|---|
+| **1** | 独立実装。conver 成果物が一切ない（RFC もグラフもチケットもヘッダも無い） | `/workspacify-reverse` → `/workspacify-tree` → `/workspacify-allocate` → … | 4層を**作成**する |
+| **2** | conver の4層ループで既に駆動済み（ルートに `RFC-ROOT.md` / `RFC-ROOT-GRAPH.json` / `RFC-ROOT-Dirs-Tree.json` / `Tickets.json` / `DesignTree.json`。この綴りは既存プロジェクトのもので、新規に書く正典名は `RFC.md`） | 同上 | 4層を**ディレクトリごとに再実体化**する。追加ではなく**中断** |
+| **3** | 個別コマンド（`/make-ticket` 〜 `/resolve-ticket`）だけを使い、4層ループは通っていない。成果物は一部 | 同上 | 1・2 と同じ終端状態へ。**あるものは保ち、無いものを作る** |
+| **4** | 空 ＋ 長い仕様書 | **`/workspacify-tree` → `/workspacify-allocate` → …**（逆回転なし） | 通常の順回転。再建するものが無い |
+
+**4つを束ねる不変条件** — この設計の荷重文です:
+
+> 4つのいずれも、**「プロジェクトが不完全な conver プロジェクトである」という理由で阻害・中止されてはならない**。不完全性は**入力**であって拒否条件ではない。
+
+順回転は「正典 RFC が既に根元に存在する」ことを前提にしています。`/workspacify-tree` は ATX 見出しを含む仕様書を要求し、`/workspacify-allocate` は `fresh-workspace only`（既存パスがあれば BLOCKED）です。**既に実装が進んだプロジェクトは順回転の入口を通れない**——これがパターン1・2・3 に逆回転が必要な理由です。
+
+### 一度で終わらない
+
+適合ループは1回で終わりではありません。内側の4つのループが実装を進めると、**前回の分割に無かったディレクトリと、分割後に書かれたコード**が生まれます。そこで改めてリバースエンジニアリングから適合し直すことで、プロジェクト全体の健康を保ちます。
+
+**2周目以降、プロジェクトは必ずパターン2として再入します**（自分が作った conver 成果物を持つため）。したがって上の不変条件は初回だけでなく**毎周回で効く**必要があり、パターン判定は入場審査ではなく**毎回の再測定**です。
+
+### 現在地（正直な記録）
+
+4つのパターンが同一の終端構造へ収束することは、**まだ証明されていません**。4つの入口それぞれの代表（独立実装 / 既に4層で駆動済み / 部分的な conver プロジェクト / 空＋仕様書）を実際に走らせた測定があり、**いずれも終端状態に達していません**。停止した段は、逆回転の実装順序の証明（T4）と、順回転のゲート（G2 / G3）です。T4 で止まった代表は、測定した依存グラフに18の循環があり、実装順序が存在しないためです。終端に達した代表が1つも無いので比較対象が無く、収束は**設計上の主張＋測定1回**です。
+
+機械の語彙は **`proved` / `not proved`** だけで、「成功／失敗」は機械の語彙ではありません。逆回転の成功条件は `/crystalize-readme` の **RESIDUE 0** であり、**ループを複数回回したうえで人間が判断**します。ラダーは L0（解析は走るが RFC が純粋な追認）〜 L3（RESIDUE 0 ＋ 全チケットの Red 証拠 ＋ 人間の判定）で、**L3 だけが成功**です。
+
+**正典 RFC の名前は `RFC.md` に固定です。** これは `/grill-me-for-rfc` が書く唯一の名前で、パッケージ名はファイル名に入りません。既存の木が持つ旧名（`RFC-ROOT.md` / `RFC-<PACKAGE>.md`）は**読み取り専用の互換**で、先行記録の走査と `/drill-rfc-down` の RFC 解決はどちらの綴りも受け付けます。
+
+終端を測る側も同じ名前に揃っています。終端インベントリ（`.claude/scripts/workspacify-reverse/lib/terminal-state.mjs` の `TERMINAL_ARTEFACTS`）は `RFC.md` / `RFC-GRAPH.json` / `RFC-Dirs-Tree.json` / `RFC-{GRAPHIFY,BOUNDIFY,SPLIT}-Status.json` を宣言し、設計文書 §2.3（`docs/archive/WORKSPACIFY-4-PATTERNS-COMPLETE-DESIGN.md`）と凍結テストがそれを保持します。旧名の木は読めますが、**この終端状態には達していない**と測られます — 走が出したものに合わせず、宣言に合わせて測るのがこの計測器の役目だからです。
+
+### 逆回転に固有の最深の論点 — Red の再建
+
+conver の最高法規は「red 無き green は違反」と定めますが、**既存実装のテストは最初から green です**。したがって逆回転では、`/start-ticket` が要求する「実装が無いから失敗する」という証拠を**遡って生成し直す**必要があります。手段は確定しており（不変条件の書き換え注入＝invariant mutation / 構文等価の証明＝TCE / プロパティベーステストの自動生成＝PBT）、`/split-to-tickets` の逆対応が**Red を持たない契約をすべて記録し、欠落ごとに再建チケットを1枚生成**します。これが無ければ、リバースエンジニアリングから始めた全体が**最初から偽の green** になります。
+
+最大の失敗モードは**追認 RFC** です。既存コードを文章化しただけの RFC は5つの整合性が表面上すべて成立し、`/find-omissions` が**循環論法で全通過**します。逆回転に要求されるのは「実装と一致する RFC を書く」ことではなく、**「実装の正しさを判定できる規範的 RFC を再建する」**ことです。
+
+---
+
+## 収束の設計思想
+
+**RFC 設計書が正典（canon）です。** 実装ループはチケット単位で実装を RFC に近づけ、`/find-omissions` が「設計と実装のギャップ」を計測します。さらに出荷ループの `/crystalize-readme` は「ユーザーにとって素敵な使い方の完成度」を、進化ループの `/drill-rfc-down` は「正典そのものの妥当性」をそれぞれ検証・更新します。計測されるギャップは次のように分類されます。
+
+| ギャップの起因 | 計測器 | 対処 | ループ |
+|----------------|--------|------|--------|
+| **実装起因**（契約がテストに正しく翻訳されていない、未実装、バグ等） | `/find-omissions` | omission チケットとして記録し、`Tickets.json` にマージ → 実装ループで再実装 | 実装ループ内で収束 |
+| **商品起因**（「ユーザーにとって素敵な使い方」として不完全・危険・欠落がある） | `/crystalize-readme` | README に RESIDUE（証拠＋実装補強設計）として記録 → `/drill-rfc-down` がチケット化 → 実装ループで再実装 | 出荷ループ経由で収束 |
+| **設計起因**（RFC 自体の考慮不足・欠落、市場変化による進化・適応要求） | `/drill-rfc-down`（grill） | 正典RFC・GRAPH・Dirs-Tree・Tickets を差分として矛盾なく更新 → 実装ループで再実装 | 進化ループ経由で収束 |
+
+実装ループを回すだけでは解消できないギャップに遭遇したとき、それが `/crystalize-readme`（商品起因）や `/drill-rfc-down`（設計起因・進化・適応要求）の出番です。
+
+**問いは最後の手段です。** 上流ループと進化ループでは、AI が**先に確定を試みます** — 公開記録・上流成果物・隣人の決定・与えられた資料を読み、決定・根拠・覆す条件の3行が書けるなら、それはもう問いではありません。`/explain-seed`・`/grill-me-for-rfc`・`/drill-rfc-down` は**同一の question-gate ブロック**を共有し、同じ規律で判定します。人間に届くのは**確定できなかった点だけ**で、しかも方向の問いとして束ねられ（1ラウンド最大3軸・最大5ラウンド）、1つの答えが多くの点を確定します。**人間の注意は希少資源**であり、質問数を減らすことは節約ではなく設計です。
+
+---
+
+## 再投資可能性 — 正典が安全に進化できるための5つの整合性
+
+> ここでの「5つ」は**整合性の数**です。「[適合ループ](#適合ループ--4つの入口と第五層)」節の**5層**（適合・上流・実装・出荷・進化）とは別の5つです。
+
+**再投資可能性（reinvestment capability）** とは、ビジネスが市場の変化に応じて**何度でも安全に開発へ再投資できる**構造のことです。conver はこれを技術的・物理的に保証します。
+
+実装を安全に中断・再開できることもその一部ですが、本質は「**正典自体が安全に変化・進化できる**」ことです。その安全性は、次の5つの整合性が**同時に**満たされることで成り立ちます。
+
+| # | 整合性 | 内容 |
+|---|--------|------|
+| 1 | **正典RFCが安全に変化・進化できる** | 変化の起点は常に正典 RFC であり、その変化は grill によって設計判断として確定・追跡される |
+| 2 | **グラフ（`*-GRAPH.json`）に一切の矛盾を発生させない** | 正典の変化は graphify によって I/O 境界単位のノード・エッジへ機械的に反映され、検証を通過する |
+| 3 | **グラフを実体化した Dirs-Tree（`*-Dirs-Tree.json`）に一切の矛盾を発生させない** | グラフの変化は boundify によってディレクトリ境界へ矛盾なく反映される |
+| 4 | **実装が以上と完全に一致する** | 変化は split によってチケット化され、実装ループが実装を正典へ収束させる |
+| 5 | **テストコードがそれを完全に保証する** | `/find-omissions` が契約→テスト翻訳を全チケット検査し、収束を機械的に計測する |
+
+**実装に入る前の受理は `/smooth-sequences` が担います。** 上の5つの整合性を実装後に測るのが `/find-omissions` なら、その手前で「列挙・操作の封筒・境界条項・契約の噛み合い・危険・成果物/ビュー/RFC の一致」を全パッケージ横断で機械検査するのが `/smooth-sequences` です。`/graphify-rfc` はその合格を `SMOOTH-VERDICT.json` として固定し、合格なし・古い合格・不合格では先へ進みません。
+
+**進化とはこれら5つの整合性を壊すことではなく、全てをロックステップで一段上げること**です。このハーネスが存在するからこそ、「安全な連続性を失わないビジネス上の再投資可能性」が技術的・物理的に保証され、ビジネスは市場の変化へ進化・適応という形で応え続けられます。
+
+---
+
+## /crystalize-readme — 出荷ループの入口
+
+**役割**: パッケージとワークスペースの **README.md 群を境界契約文書**として生成・更新します。引数はありません。グラフはパッケージ直下の `RFC-GRAPH.json`（無ければ唯一の `*-GRAPH.json`）からコマンド内部で導出します。判定基準は**「ユーザーにとっての使い方がユーザーにとって素敵か」**であり、各 README セクションについて**「そのセクションに書かれた使い方が完全に動作する実装が現在存在するか」**を判定します。書けるセクションは完全な記述として確定し、書けないセクションは RESIDUE 記述として README 内に証拠と実装補強設計を残します。
+
+**生成 README の言語は英語のみ**です。見出し・本文・RESIDUE・例に日本語（ひらがな・カタカナ・CJK 漢字）を混入させません。旧版の日本語例は撤回されました。`validate-readme-language.js` が書き込み前に拒否します。
+
+**refine は過去の記述を再利用します。** 証拠ダイジェストが変わらない完成済みセクションはバイト単位で保持し、証拠が変わったセクションと RESIDUE セクションだけを再評価します。実装の完全性が絶対の前提であり、契約文書の存在だけを理由にセクションを書くことはありません。
+
+**RESIDUE とは**: 「なぜ書けないか」のメモではなく、**「README と examples の実装を完全にするための実装チケットの素材」**です。危険・欠落・矛盾・不備の具体的な証拠と、実装を補強するための設計が、README 内の `<::README-RESIDUE::>`（または examples 用の `<::EXAMPLES-RESIDUE::>`）マーカーと共に厳密に記述されます。RESIDUE は後に `/drill-rfc-down` によってチケット化されます。
+
+**2つの実行モード**:
+
+- **fresh**: README.md / CRYSTALIZE-Status.json が存在しない初回実行。ゼロから開始します
+- **refine**: 過去の実行成果物が存在する再実行。見出しを再確定し、全セクションを再解析して洗練・更新します
+
+**ワークフロー**:
+
+1. **Preflight**: `derive-output-paths.js` がグラフを構造検証し、出力先と実行モードを決定（決定論）
+2. **Step 1 — 目次 grill**: 使い方に焦点を当てた README の見出し階層（H1, H1-1, …）をユーザーとの対話で確定し、骨子を README へ機械出力（各セクションに `<::TEMPLATE-README::>` マーカーを付与）
+3. **Step 2 — セクション単位検査ループ**: 各セクションについて、対応するチケットの spec → 実装を読み、証拠に基づいて「書ける／書けない」を判定。書ける → `resolve-section`、書けない → `mark-residue`。AI が README を直接編集することは禁止
+4. **Step 3 — Examples 専用ステップ**: 末尾の「Examples（実装サンプル）仕様と設計」を仕上げ、`<::TEMPLATE-EXAMPLES::>` を解決するか RESIDUE 化する
+
+**収束と出荷**: 全セクションが「完全な記述」または「RESIDUE 記述」になり、marker 文法と residue レジストリが整合すれば、コマンドは収束します（RESIDUE が残っていても収束です）。RESIDUE が残っていれば `/drill-rfc-down` へ渡して実装を補強し、refine モードで再検証します。**コマンドの収束と外側の出荷判定は別です。RESIDUE がゼロになり、「ユーザーにとって素敵な使い方」が README.md として書き上がり、実装とテストがそれを満たすことを外側の出荷判定が確認した状態——それが「出荷」です。**
+
+---
+
+## /drill-rfc-down — 進化の扉
+
+**役割**: 上流ループを終えた正典 RFC を「進化ステージ」ごと一段上げる、**唯一の進化の扉**です。入力（crystalize の RESIDUE / 事前のユーザーとの自由会話 / 与えられた資料）に対して **grill 方式**（先行記録から確定できる点は先に確定し、確定できない点だけを方向の問いとして束ねて聞く）で設計判断を確定させ、確定した差分を既存の `*-GRAPH.json` / `*-Dirs-Tree.json` / `Tickets.json` へ**矛盾なく反映**します。つまり内部で **grill → graphify → boundify → split → verify を「差分」に対して実行**します。上流ループを終える前の入口については次節を参照してください。
+
+**ループ内の位置付け**: 実装ループの `/find-omissions` が計測したギャップのうち「実装側で埋められない設計起因のもの」、および出荷ループの `/crystalize-readme` が残した RESIDUE を解消します。さらに、市場変化や新たな要件（ユーザーとの自由会話・資料）を正典へ取り込む**進化ループ**の入口でもあります。
+
+**drill の役割は、進化の差分反映に加えて、root spec の数式・理論を Tickets まで貫通させることへ拡張されています。** `Tickets.json` が存在するタイミング以降は、FRESH / MIGRATION / REPAIR / VERIFY_ONLY のいずれでも実行でき、数式の所有・ledger・sidecar・GRAPH・Dirs-Tree・ヘッダ・Tickets の一致を証明します。欠落は `Action` / `Verify` を伴う finding として出て、修復して再実行し `COMPLETE` に到達します。終端は `COMPLETE` / `BLOCKED_PREREQUISITE` / `REPAIR_NO_PROGRESS`。workspace 全体の数式完全性は S8 の rollout レポートで確認します。
+
+**最近のアップデート**:
+
+- **いつでも進化**: `Tickets.json` が存在すれば、FRESH / MIGRATION / REPAIR / VERIFY_ONLY / 再開のいずれでも実行できます。無い場合は `BLOCKED_PREREQUISITE`（`TICKETS_MISSING_ROUTE_SPLIT_TO_TICKETS`）で `/split-to-tickets` を案内し、勝手にチケットを作りません
+- **ループ状態の保持**: root `round`、`metadata` の全キー、既存フェーズ ID、既存チケット ID / `phaseId`、既存 `status` を保存します。staging は実体の sha256 と id/status マップを baseline に記録し、`--approve` が compare-and-swap で検証します（`STALE_STAGING_BASELINE`）。delta も導出元の sha256 を持ち、古い delta は `STALE_DELTA` として拒否されます
+- **数式の貫通**: RFC Formula ledger → `RFC-FORMULAS.json` → GRAPH → Dirs-Tree → 実装ヘッダ → Tickets の一致を Step 2〜5 と G5 で証明します。`FORMULA_NO_TICKET` / `FORMULA_DUPLICATE_TICKET` / `RFC.md` origin / 欠落シンボル・テストは promote 前に拒否されます。所有数式ゼロは正当な状態です
+- **no-arg drill**: 引数なしで README と SEQUENCES ビューを一度だけ解決します。README は**任意**（無ければ `README_PRESENT=false` で続行）。Step 5 は view → ledger → GRAPH → 実装ヘッダ → Tickets の貫通を検証します
+- **COMPLETE の唯一の宣言元**: `DRILL-REPORT.json` / `.md` だけが `COMPLETE` を宣言します。`DESIGN_DONE` と `COMPLETE` は別状態です。全 finding は `Action` / `Verify` を持ち、修復して再実行し、進捗しなければ `REPAIR_NO_PROGRESS` で終わります
+- **run history**: `begin-run` / `end-step` が `runs` と `generation` を記録します。`generation` は出力 digest が変わったときだけ進み、`--audit` は generation を書かずに実行回数だけ数えます。progress-gif の run マーカーも同じ記録を読みます
+- **cross-package API 整合**: 全パッケージ RFC の Rust フェンスを読み、未定義・重複・arity・ジェネリック arity・種別不一致・未宣言依存を検出します。drill では P2 residue として報告し、パッケージ内のブロッカーにはなりません。読めない構文は `UNPARSED_SURFACE` advisory です
+
+### 進化の入口は、上流ループを通過したかどうかで決まる
+
+正典 RFC を新しい情報で進化させる入口は、**上流ループ（`/explain-seed` → `/grill-me-for-rfc` → `/smooth-sequences` → `/graphify-rfc` → `/boundify-graph` → `/split-to-tickets`）を終えたかどうか**で切り替わります。コマンド名の一覧ではなく、**ループ単位**で覚えてください。
+
+```mermaid
+flowchart TD
+    subgraph UP["上流ループ（分解）"]
+        E1["/explain-seed"] --> E2["/grill-me-for-rfc"] --> E3["/smooth-sequences"] --> E4["/graphify-rfc"] --> E5["/boundify-graph"] --> E6["/split-to-tickets"]
+    end
+    E4 -.-> NOTE["実際の切替点<br/>graphify が最初の<br/>RFC-GRAPH.json を書いた瞬間"]
+    E6 ==>|★ ループ単位の境界<br/>上流ループの完了| GATE{"上流ループを終えたか"}
+    GATE -->|終える前| BEFORE["/grill-me-for-rfc を<br/>新しい資料と共に再実行する"]
+    GATE -->|終えた後| AFTER["/drill-rfc-down<br/>（本節が説明する「進化の扉」）"]
+```
+
+- **上流ループを終える前** — 正典 RFC はまだ唯一の設計成果物です。`/grill-me-for-rfc` に新しい資料を渡して再実行すると、その資料はセッションに記録されて読み取り段に届き、確定した差分が RFC に反映されます。書き直しの直前には旧 RFC の退避が取られるため、反映後に差分を確認できます。
+- **上流ループを終えた後** — RFC からグラフ・ディレクトリ境界・チケットが既に導出されています。ここで RFC だけを書き換えると、派生成物は古い設計を抱えたまま取り残され、しかもそれを検出できません。進化は `/drill-rfc-down` が担います。RFC への追記を差分として読み、grill → graphify → boundify → split → verify を通して派生成物と歩調を合わせるためです。
+
+**但し書き（より正確には `/graphify-rfc` が境界）** — 実際に入口が切り替わるのは上流ループの完了時ではなく、**`/graphify-rfc` が最初の派生成物 `RFC-GRAPH.json` を書いた瞬間**です（旧名の木では `*-GRAPH.json`）。以降は `/grill-me-for-rfc` が RFC の書き換えを拒否し、`/drill-rfc-down` へ誘導します。したがって `/graphify-rfc` 済み・`/boundify-graph` 未の狭間では、grill は拒否し、drill は前提成果物（`RFC-Dirs-Tree.json` / `Tickets.json`）が揃わず起動しません（`README.md` は任意で、無ければ `README_PRESENT=false` として続行します）。この窓では先に `/boundify-graph` まで進めてから `/drill-rfc-down` を使ってください。
+
+### `amend-rfc-up` と `drill-rfc-down` — 補強・強化か、進化・再設計か
+
+正典を更新する入口は2つあります。どちらも RFC・GRAPH・Dirs-Tree・Tickets に到達しますが、**決定が閉じているか、開いているか**が違います。
+
+| | `/amend-rfc-up` — 補強・強化 | `/drill-rfc-down` — 進化・再設計 |
+|---|---|---|
+| 決定 | **閉じている**。既に決まったことを適用する | **開いている**。未決の設計点を人間に聞いて決める |
+| 範囲 | **広い**。複数パッケージ横断・workspace impact まで検証する | **狭い**。単一パッケージを深く進化させる |
+| 書くもの | `## Design Amendments` への追記と、派生物の再導出 | 設計本文の進化と、staging された差分の承認 |
+| 保証 | 規則・義務・surface の網羅台帳 | 質問の settle 根拠・staging の承認・staleness の再審問 |
+| 主な危険 | 不定点を黙って「最小・後方互換・可逆」で埋める | 質問コストと、設計が行き過ぎること |
+| 向く作業 | レビュー指摘の反映、規約・法令への追随、漏れの補修、既決の仕様変更、パッケージ横断の修正 | 意味の変更、新概念の導入、公開契約の破壊的変更、GRAPH / Dirs-Tree の再編、staleness の再審問 |
+
+**境界の一言**: 骨格を保ったまま強くするのが **amend**、骨格まで変えうるのが **drill**。
+
+**迷ったら「質問が必要か」で分けます。** 質問が必要なら drill、不要なら amend です。amend は質問を禁止し、決定できない点を「最小・後方互換・可逆」で埋めるため、人間の体験や優先順位に関わる判断を任せてはいけません。drill は問いを最後の手段にしつつ、必要な点だけを方向の問いとして束ねます。
+
+**正典の状態による入口**:
+
+- 新規作成・全面書き換え（`standalone` / `partial`）→ `/grill-me-for-rfc`
+- 正典が揃っている（`materialized-fresh`）→ `/drill-rfc-down`
+- receipt が古い（`materialized-stale`）→ `/amend-rfc-up` の修復ループ
+
+**編集方針**:
+
+- 追記優先。全文書き換え・セクション削除・破壊的変更は禁止
+- DesignTree / Status / CheckList は `/grill-me-for-rfc` と同一のノード機構（Q-id 規約）を再利用しつつ、セッションは `<rfcDir>/drills/`（`$SESSION_DIR`）に隔離して既存の `Status.json` 等には触れない（既存セッションがあれば継続）
+- 問いは**先に確定を試みてから**立てる。`/explain-seed`・`/grill-me-for-rfc` と**バイト同一の question-gate ブロック**を持ち、`settle-run.js "$SESSION_DIR" prior "$RFC_DIR"` がパッケージと隣接ディレクトリの先行記録（`RFC.md` または `RFC-<SLUG>.md` / `RFC-SEED.md` / `INFO-RFC-SEED.md` / `EXPLAIN-RFC-SEED.md`）を読む。**確定できた点は聞かず**、確定できなかった点だけを束ね（1ラウンド最大3軸・最大5ラウンド）7行の塊として聞く。settle テスト（決定・根拠・覆す条件の3行）が書けて落ちるまで、問いは起草できない
+- 質問 → 回答 → 追記 → CheckList 照合 → 再 grill 判定のサイクルで品質を高める。人間の答えは、**その答えが含意する点を AI が settle するため**に使う（含意しない点は bound のまま残し、何を含意しなかったかを言う）
+- I/O 境界参照情報を追記し、後段の graphify / boundify が安全に分割できるようにする
+- 確定した差分に対して graphify → boundify → split を実行して `*-GRAPH.json` / `*-Dirs-Tree.json` / `Tickets.json` を矛盾なく更新し、最後に verify で5成果物（RFC / GRAPH / Dirs-Tree / src / Tickets）の相互整合性を6チェックで機械検証して積み増しチケットを生成する。boundify は新規ファイルを `Initial Design Artifact` ヘッダ付きで機械生成し、既存ファイルのヘッダも自動更新する（実装本体は不変）。verify は孤立エッジ契約（グラフに存在しどのチケットにも紐づかない契約）も検出する
+
+**この機能の意味**: 正典・グラフ・ディレクトリ構造・チケットが常にロックステップで更新され続けるため、開発プロジェクトは「安全な連続性を失わないビジネス上の再投資可能性」を担保できます。ビジネスの再投資と進化・適応（方向転換・機能追加・要件変化への対応）は、いつでもこの扉を通じて正典を進化させることで、年単位の長期開発を矛盾なく続けられます。
+
+---
+
+## コマンド一覧
+
+### 適合ループ（第五層・人間＋AI 実行）
+
+#### `/workspacify-reverse`
+
+既存プロジェクトを解析し、逆回転の入口となる origin spec を発行します（R0〜R8 を直列に1回）。**順回転が通れないプロジェクトのための入口**です。
+
+- **引数はありません。** 主題は**カレントディレクトリ**、出力先は**その下の `workspacify/reverse`** で、どちらも選択できません
+- 予約ルート `workspacify` は**文書倉庫**です。解析のどの走査もこの名前のディレクトリへ降りないため、書き込んでも測った木は測ったままです。解析は前後で木をダイジェストし、予約ディレクトリの外で1バイトでも動いていれば何も発行しません
+- かつて受けていた引数（`--out` / `--through` / `--query`）は**名前で拒否**されます。黙って落とされた問いは、答えられた問いと全く同じに見えるためです
+- **出力**: `ORIGIN-LONG-SPEC.json` と、そこから描画した Markdown
+
+#### `/workspacify-tree`
+
+長い Markdown 仕様書を解析し、**stage one** の正典 `WORKSPACIFY-TREE-MANIFEST.json` を**カレントディレクトリ**に発行します。この時点では実装しません。
+
+- **入力**: 引数は取りません。仕様書はワークスペースルートの固定名 `SYSTEM-DESIGN.md`（ATX 見出しを1つ以上含む）です。スクリプトが存在チェック込みで導出し、非空の引数は名前で拒否します
+- **6 Step**: `parse`（G0/G1 入力ロック）→ `extract`（G2 要求インベントリのハーベスト）→ decision JSON 執筆 → `gate`（G3/G4 自己修復ループ）→ `finalize`（G5 原子的公開）→ report
+- **ゲート階層**: G0 入力ロック → G1 構造 → G2 要求インベントリ → G3 ワークスペース（カタログ／owner 一意性／過分割／必須責務／**番号付き章の被覆**）→ G4 依存（DAG／層規則／循環／**実装順序の証明**）→ G5 成果物完全性。**親が PASS でない子は決して PASS にならない**
+- **番号付き章の被覆**: 仕様書が `S00`, `S01`, ... と番号を振った章は、少なくとも1つのパッケージ責任文がその章番号を名指ししていなければ G3 が拒否します。`spec_defects` は観測を片付ける記録であり、ディレクトリを割り当てる owner ではないため、代用できません。残数は `finalAudit.uncovered_chapter_count` に出ます
+- AI が書く decisions 文書は `workspacify/tree/DECISIONS.json` から読みます。これは**staging**（成功した publish が機械的に削除する中間成果物）で、記録は公開された manifest です
+- **逆対応（リバースモード）**: 既存ディレクトリ構造を完全に守って manifest を生成します
+
+#### `/workspacify-allocate`
+
+**stage two**。stage one の manifest を唯一の入力に、**manifest と同じディレクトリ**に実ディレクトリツリーを生成し、各パッケージディレクトリへ**ちょうど1つ** `RFC-SEED.md` を置きます。
+
+- **入力**: 引数は取りません。manifest はワークスペースルートの固定名 `WORKSPACIFY-TREE-MANIFEST.json` です。スクリプトが存在チェック込みで導出し、非空の引数は名前で拒否します。`--package` は `packet` サブコマンドの選択子です
+- **ゲート階層**: G0 入力ロック → G2 転送基礎・安全性 → G3 seed レンダ・局所検査 → **G3.7 self-grill と residual の到達** → G4 双方向契約 → G5 **WIG**（Workspace Integration Graph: 誰も履行できない結合・二重 owner・二重変更・検証者なき証明を違反として検出）＋実装順序 → G6 公開・reload・cleanup
+- **self-grill** は、AI が自分自身を敵対的に5焦点（`implementer` / `counterpart` / `test` / `grill` / `adversarial`）でレビューし、最終パスで findings が 0 になるまで収束させる機構です。解けなかった問いだけが **residual** となり、後段の人間 grill へ構造的に引き継がれます。`TODO` / `TBD` / `ask the human` / `waiting for approval` 等は**全文禁止**
+- **出力は3種のみ**: 実ディレクトリツリー / 各パッケージの `RFC-SEED.md` / `WORKSPACIFY-ALLOCATE-MANIFEST.json`
+- AI が書く decisions 文書は `workspacify/allocate/DECISIONS.json` から読みます（tree と同じく staging）
+- **逆対応（リバースモード）**: 既存構造を守ったまま、全ディレクトリへ `RFC-SEED.md` を配置します
+
+**引数の面の規則**（適合ループの3コマンドに共通）: 仕様書と stage-one manifest は**ワークスペースルートの固定名**（`SYSTEM-DESIGN.md` / `WORKSPACIFY-TREE-MANIFEST.json`）としてスクリプト内部で導出され、**引数としては受け取りません**。非空の引数は名前で拒否されます。パスを自分で導出できる引数（出力先・グラフ・実測値・サイドカー・差分・事前分割・decisions の在処）もすべて受け付けず、**名前で拒否**されます。**撤退と拒否は同じ規則の裏表**です — 黙って無視された引数は「効かなかった」と読めますが、黙って落とされた問いは「答えられた問い」と全く同じに見えるためです。`workspacify-order` は実装順の表示・検査のための任意の seed path だけを受け取り、`/educe-sequences` は固定 `SYSTEM-DESIGN.md` のみを読みます。
+
+#### `workspacify-order`（`.claude/scripts/workspacify-order/run.mjs`）
+
+第五層の**実装順**を端末に描画します。引数なしならカレントディレクトリから、引数に `RFC-SEED.md` を1つ渡すならそこからワークスペースルートを解決します（引数は最大1つ）。
+
+- **ビルド順と実装順を別概念として表示**します。stage one の依存 DAG がビルド順、シーケンス・ステップ契約・境界契約から導出した順が実装順です。左から右が時間で、provider が先に来ます
+- **表示は検査でもあります**。実装順が公開済みの `implementation_order` と食い違えば描画を拒否します。サイドカー（`IMPLEMENTATION-ORDER.json` / `WORKSPACIFY-IMPLEMENTATION-ORDER.json`）が古い場合も `STALE_IMPLEMENTATION_ORDER` で拒否します。サイドカーも成果物も無い場合はビルド順を表示し、**ビルド順であることを明示**します
+- 各ディレクトリの行には、上流から `edu` / `exp` / `gri` / `seq` / `smo` と `gra` / `bou` / `spl` の進捗印が並びます。**表示された順序は、そのまま安全な実装順**です
+
+#### `/educe-sequences`
+
+ワークスペースルートの固定 `SYSTEM-DESIGN.md` から**網羅的なシーケンスとオペレーション**を抽出し、`SYSTEM-DESIGN-sequences.json` をワークスペースルートに発行します。18フェーズ・31の宣言チェック・3つのタグ（`[det]` / `[read]` / `[ad-hoc]`）で、全行がどれかのエントリに属し、各ステップが引用行に裏づけられるまで収束させます。
+
+- **schema v3** ではステップごとの型付き契約（`pre` / `post` / `invariants` / `consumes` / `produces` / `errors` / `crosses`）と `operations[].registry_contribution` を持ちます。v2 も読めますが、`/smooth-sequences` は v3 の証拠面が無いものを合格させません
+- **台帳は仕様書の純関数**で、ディレクトリもパッケージも知りません。誰が何を負うかは `/grill-me-for-rfc` の射影（`SEQUENCES.md` / `SEQUENCES.json`）と `/smooth-sequences` が決めます
+- 実行ディレクトリは**ワークスペースルート**（固定 `SYSTEM-DESIGN.md` のあるディレクトリ）です。`educe-sequences/` に run 状態・readings・`demand.json`・archive を置きます
+
+### 上流ループ（人間＋AI 実行）
+
+#### `/explain-seed`
+
+第五層が置いた `RFC-SEED.md` を、設計面接（grill）の**前に**人間へ平易に説明し、人間の判断だけを人間から引き出します。入力は引数なし。実行ディレクトリの `RFC-SEED.md` を対象にし、親ディレクトリは探索しません。
+
+- **出力**: seed の隣に2文書。`INFO-RFC-SEED.md`（**事実**・英語・スクリプトが書く。2つの manifest・seed・仕様書・隣人の説明・**`workspacify-order` から読んだ実装順**から組み立て、stdout に同じバイトを出す）と `EXPLAIN-RFC-SEED.md`（**説明**・日本語・AI と人間の共著）。**事実と説明を別文書に分ける**のが要点で、`/grill-me-for-rfc` と `/drill-rfc-down` はこの2文書を先行記録として読む
+- **プロセス**: `run.mjs info` が事実と枠を書く（G1）→ AI が `[::MUST-FILL::]` を日本語で埋める（G2）→ `run.mjs next` が番号付きの空の質問ブロックを追記（1ラウンド最大3問）→ AI が自分の散文を1つの判断として自己判定する（G3）→ `run.mjs check` がゲート（G4）→ `run.mjs answers` が判定（G5: 全問に回答があり、未確定点がゼロ）
+- **質問の作法**: 論点は人間に投げず、**方向の問い**だけを投げる。順番は「AI が確定 → 確定できない点だけを束ねる → 束ねたものだけを聞く」で、1ラウンド最大3問・最大5ラウンド。結果として質問数は論点数よりずっと少なくなる
+- **不変条件**: 書く前に検証（記録ハッシュが食い違えば1バイトも書かない）／論点は消えない（`open`・`bound`・`settled` のいずれかで、ground の無い決定の根拠にはならない）／AI は人間の答えを書かない／ワークスペースへは読み取りのみで、作るのはこの2文書だけ
+- **位置づけ**: 上流は `/workspacify-allocate` の seed、下流は設計面接。ここでゼロになった未確定点は、後段の grill では**聞かれません**
+
+#### `/grill-me-for-rfc [<material file|directory>...]`
+
+material（0個以上のファイル/ディレクトリ）をもとに、RFC 設計書を対話型セッション（grill）で書き上げます。
+
+- **入力**: material（ファイル、またはすべてのファイルが material であるディレクトリ）。**0個でも可**（事前成果物と会話のみから始める）。**RFC 出力先は引数ではありません**。これに加えて STEP 0 が、実行したディレクトリ（`$RFC_DIR`）と隣接ディレクトリの先行記録 — `RFC.md`・`RFC-SEED.md`・`INFO-RFC-SEED.md`・`EXPLAIN-RFC-SEED.md` — を読みます（既存の木では正典が旧名 `RFC-<SLUG>.md` のこともあるため、読み取りはその綴りも受け付けます）
+- **要求台帳を与える**: `*-sequences.json`（`/educe-sequences` の成果物）を material の1つとして渡すと、STEP 0 がこのパッケージぶんの単位を `$RFC_DIR/SEQUENCES.md` / `SEQUENCES.json` に射影し、それを material として読みます。渡さなければ、走は今までと1バイトも変わりません（検出器は常に exit 0、義務集合は空、第六の一貫性は空配列を返します）。詳しくは[要求台帳の配布と波及](#要求台帳の配布と波及--単位idが4ループをどう通るか)
+- **出力**: 正典 RFC は常に `$RFC_DIR/RFC.md`。**名前は固定で、引数でも走査でも変えられません**。派生する成果物名も固定です（`/graphify-rfc` → `RFC-GRAPH.json`、`/boundify-graph` → `RFC-Dirs-Tree.json`、`/split-to-tickets` → `Tickets.json` / `RFC-SPLIT-Status.json`）
+- **プロセス**: `init.js "$RFC_DIR" $ARGUMENTS` が DesignTree / Status.json / CheckList.md を初期化 → STEP 0 の先行走査と `settle-run.js "$RFC_DIR" prior` → はしごで確定できる点を確定 → 確定できない点だけを束ねて（1ラウンド最大3軸・最大5ラウンド）7行の塊で聞く → 答えが含意する点を `settle` で確定 → 全ノード解決で CheckList 生成 → RFC 執筆 → I/O 境界参照情報を追記
+- **質問ゲート**: 「決定・根拠・覆す条件」の3行が書けて**落ちる**まで、問いは起草できません。根拠は**この走で実際に読んだ記録**に限られ、読んでいない記録を根拠にした確定は拒否されます。この規則ブロックは `/explain-seed`・`/drill-rfc-down` と**バイト同一**（3ファイルで共有する1つのブロック）で、3コマンドが別々の問い方へ drift しないことをテストが保証します
+- **制約**: 完全網羅・スコープ委譲禁止・スタブ禁止。TBD / TODO / 委譲の混入禁止。各設計判断にコードスニペット必須。IETF スタイル（Abstract / Motivation / Design / Implementation / Appendix）
+- **DONE の意味**: `complete-run.js` は STEP 8 の必須ゲートを自分で評価し、どれか1つでも非ゼロなら DONE を書かず `Status.json` を変更しません。分母（`pins.sourceEnumerations`）が未表明なら `/educe-sequences` で供給してから再実行します
+- **逆対応（リバースモード）**: 入力は `/workspacify-allocate` が逆モードで発行した `RFC-SEED.md`（§1 にリバース索引を機械注入で持つ）。逆対応の質問生成器が §1 の索引と residual から質問候補を生成し、**未解決 claim ごとに「意図か偶然か」の問い**を挿入します。順回転の seed は名前で拒否されます（順回転の seed はこの grill の入力ではありません）
+
+#### `/smooth-sequences`
+
+ワークスペースルートで、全パッケージの `SEQUENCES.json` / `RFC.md` / `OBLIGATION.json`、ルートの `*-sequences.json`、`WORKSPACIFY-{TREE,ALLOCATE}-MANIFEST.json` を読み、**実装直前の最終受理ゲート**を実行します。スクリプトが判定し、実行する AI が修復します。終端状態は「新しい enforcing run が exit 0 かつ verdict が `pass`」の1つだけです。
+
+- **検査族**: S1 列挙の整合 / S3 操作の封筒 / S4 境界条項と contribution / S5 契約の噛み合い / S6 危険（循環・到達不能・境界効果の漂流）/ S7 成果物・ビュー・RFC の一致。証拠面が無い・分母がゼロ・移行で合成された check は `blocked` として報告され、finding には数えません。closure mode では S8（数式の完全性）も `check-formula-completeness.js` が測り、不足行を `SPEC-COMPLETENESS-WORKLIST.json` に書きます
+- **修復の4経路**: `in-place`（パッケージ `RFC.md` / `OBLIGATION.json` / view を直して再生成）/ `regeneration`（candidate → staging → verify → commit のトランザクションでのみ仕様・decisions を変更）/ `judgment-required`（所有コマンド `/grill-me-for-rfc` または `/explain-seed` が staging で確定）/ `blocked`（不足した証拠面を producer で復元）
+- **closure mode**: v3 成果物または evidence manifest と両 manifest が揃うと、grill の6つの機械ゲート（obligation coverage / contribution completeness / distribution completeness / defect report / formula completeness（S8） / API consistency）もここで実行し、厳格な証拠（`held` 判定、blind attack、freshness、effort trace）まで検査します。`COMPLETION-CERTIFICATE.json` が `complete` でなければ `unproven`（exit 4）です
+- **出力**: `smooth-sequences/SMOOTH-SEQUENCES.json` / `.md` / `status.json` / `COMPLETION-CERTIFICATE.json` / `JUDGMENT-WORKLIST.json` / `CALIBRATION.json` / `SPEC-COMPLETENESS-WORKLIST.json` と `archive/`（世代を削除しない）。`--audit` は判定を変えずに `wouldExit` を報告します
+- **位置づけ**: `/graphify-rfc` はこの合格を `SMOOTH-VERDICT.json` として固定します。合格が無い・古い・不合格なら graphify は停止します（後述の「受理ゲート」）
+- **進化ループとの関係**: `/drill-rfc-down` は自前の staging / commit と6チェック検証を持ち、`/graphify-rfc` コマンドの Step 0 ゲートを通りません。進化が台帳・view を変えた場合は、次の前進 graphify の前に `/smooth-sequences` を再実行してください
+
+#### `/graphify-rfc`
+
+長大な Markdown 設計文書を **I/O 境界単位の細粒度ノード** に分割し、属性付きエッジで結んだグラフ構造（`RFC-GRAPH.json`）として永続化します。
+
+- **入力は固定**: 引数は取りません。カレントディレクトリの `./RFC.md` を唯一の入力とし、`./RFC.md` が無い場合は `MISSING_RFC` で停止します（レガシー名へのフォールバックはしません）
+
+- **Step 0〜5 進行制御**: 見出し重複排除（Step 0）→ ノード分割（Step 1、4軸: セクション階層 / 単一 kind / 外部依存の有無 / 言語割当）→ エッジ付与（Step 2、12種 + 契約 annotation）→ 機械検証（Step 3、未カバー行・孤立ノード）→ 自己検証と 5% 抜き打ち品質検査（Step 4、headingRefs 解決性）→ 最終品質検証（Step 5、全グラフ要約）
+- **Step 0 の受理ゲート**: `verify-smooth-verdict.mjs` が `smooth-sequences/status.json`・closure certificate・凍結した設計スナップショットを検証し、ワークスペース直下に `SMOOTH-VERDICT.json` を書きます。`MISSING_SMOOTH_VERDICT` / `SMOOTH_VERDICT_NOT_PASS` / `SMOOTH_FORMULA_INCOMPLETE` / `STALE_SMOOTH_VERDICT` / `SMOOTH_CERTIFICATE_INCOMPLETE` / `SMOOTH_ARTIFACT_MISMATCH` は停止です。receipt は viewDigests・mapDigests・formulaDigests・worklistDigest・formulaCompleteness を束縛します。ワークスペース外では `skipped:outside-workspace` になります
+- **分布の受入**: Step 1 の前に `attach-unit-ids.js --admit` が `SEQUENCES.json` / 配布マップ / allocate manifest を digest 束縛のサイドカーとして読み、`STALE_DISTRIBUTION_MAP` / `UNIT_SET_MISMATCH` / `SEQUENCE_STEPS_UNDISTRIBUTED` / `MISSING_BOUNDARY_CONTRACT` で停止します。**グラフは単位IDを発明せず、受領したものだけを運びます**
+- **常にチケット粒度より細かく分割（発散）** する。後段 `/split-to-tickets` / `/boundify-graph` が粗い粒度で抽出・束ねる
+- 生成されたグラフは `/boundify-graph` の入力となり、`/split-to-tickets` は同じディレクトリの `RFC-GRAPH.json` と `RFC-Dirs-Tree.json` を導出して読む。`/make-ticket` 〜 `/review-ticket` でも設計参照に利用される
+- **逆対応（リバースモード）**: GF1 / GF2 ゲートを持ち、差分を方向別に数えます。**差分ゼロは信じる対象ではなく精査する対象**として報告されます
+
+#### `/boundify-graph`
+
+`/graphify-rfc` が生成したグラフ JSON を入力に、検証・自己修復ループを経て**安全な境界を持つ実装ディレクトリツリー**（`RFC-Dirs-Tree.json`）とテンプレートファイルを生成します。graphify（論理グラフ）→ boundify（物理ディレクトリ）の直列パイプラインを構成します。
+
+引数はありません。カレントディレクトリの `./RFC-GRAPH.json` を唯一の入力とし、`./RFC-Dirs-Tree.json` と `./RFC-BOUNDIFY-Status.json` を導出します。引数を渡した場合は `UNEXPECTED_ARGUMENT`、グラフが無い場合は `MISSING_GRAPH`、`sourceFile` が読めない場合は `MISSING_SOURCE` で停止します。スクリプト群は同じ固定名を既定値とし、非標準レイアウトでは `--graph=` / `--dirs-tree=` / `--status=` を上書きとして受け付けます。
+
+- **自己修復ループ**: 5軸検証（ノードID/エッジ/headingRefs/孤立ノード/ソース網羅）で graphify→boundify 接合部の整合を確認し、問題があればスクリプトの指示に従って修正・再実行。`/graphify-rfc` へ戻る必要なし
+- **受理証明の再確認**: `verify-chain` はワークスペース直下の `SMOOTH-VERDICT.json` を要求します。無い場合は `MISSING_SMOOTH_RECEIPT`、smooth またはルート成果物が動いた後は `STALE_SMOOTH_VERDICT` で停止し、graphify → boundify の再実行を求めます
+- **Prune 規則**: 子 2 未満のディレクトリは除去、単一子は親へ平坦化
+- **宣言スタブ**: 実装のない空ファイルには言語・kind に応じた宣言スタブ（関数シグネチャ + 実装 TODO）を自動付与
+- **実装前ブリーフ**: 生成ヘッダは mapped node ごとに `show-node-contracts.mjs --id=Nxxxx` を案内します。引数はノード ID だけで、`RFC-GRAPH.json` / `SEQUENCES.json` / `RFC-STEP-CONTRACTS.json` / `RFC-Dirs-Tree.json` / `RFC.md` はカレントディレクトリの固定名から導出し、契約 registry は祖先の `WORKSPACIFY-ALLOCATE-MANIFEST.json` から導出します。`SEQUENCES.json` / `RFC-STEP-CONTRACTS.json` が無いパッケージではコマンドを出さず、`Implementation brief: unavailable (...)` の 1 行だけを出します。コマンドはノードの全 unit について、実装するもの・守るべき step/境界契約・実装してはいけない外部/excluded・安全な順序を Markdown で出力します
+- **Prose 除外**: `rationale` / `glossary` / `requirement` の 3 kind はファイル生成対象外（設計情報は接続先ファイルのヘッダコメントに相互参照として埋め込む）
+- 循環依存の検出と警告
+- **逆対応（B1/B2/B3）**: 逆モードの処理はファイルを生成せず、欠けている `Initial Design Artifact` ヘッダを付与し、差分をヘッダのみに制限します。**既存ヘッダは1バイトも書き換えません**（最高法規4）。`--apply` を付けない限り、測った木には何も書きません
+
+#### `/split-to-tickets`
+
+設計文書を依存関係に基づく**フェーズとチケットに分解**し、`Tickets.json` を生成します。引数はありません。呼び出し側が与える入力はカレントディレクトリの `./RFC.md` だけで、GRAPH・Dirs-Tree・Tickets.json・SPLIT status・`SEQUENCES.json` はスクリプトが同じディレクトリから導出します。引数を渡した場合は `UNEXPECTED_ARGUMENT`、RFC が無い場合は `MISSING_RFC`、GRAPH が無い場合は `MISSING_GRAPH`、Dirs-Tree が無い場合は `MISSING_DIRS_TREE` で停止します。非標準レイアウトでは `--tickets=` / `--status=` などを上書きとして受け付けます。`/make-ticket` 以降の全コマンドはこの `Tickets.json` を参照・更新します。
+
+- **fail-closed 前処理**: Step 0 が `verify-chain` と `SMOOTH-VERDICT.json` を要求します。`STALE_DISTRIBUTION_MAP` / `UNIT_SET_MISMATCH` / `SEQUENCE_STEPS_UNDISTRIBUTED` / `MISSING_BOUNDARY_CONTRACT` / `MISSING_SMOOTH_RECEIPT` / `STALE_SMOOTH_VERDICT` は停止で、チケットを1枚も作りません
+- **機械的フェーズ設計**: `phasify-graph-and-dirs-files-tree.js` が GRAPH と Dirs-Tree を入力に、重み付きトポロジカルソート + SCC 縮約で全ノードを実装フェーズへグループ化
+- **1チケット・1不変条件**: ノード群を安全な I/O 境界でチケットに束ね、各チケットに `nodeIds` / `contracts` / `default_files` を付与。`add-tickets-for-phase.js` はノードが運ぶ `unitIds` をチケットの `nodeIds` へ追記し、`distribution`（自パッケージの単位・共有ステップの owner・参照先）を機械的に書きます
+- **契約の配布**: `merge-contracts-to-tickets.js` が `RFC-STEP-CONTRACTS.json` を読み、各ステップの型付き契約（`pre` / `post` / `invariants` / `consumes` / `produces` / `errors` / `crosses`）を、その操作を実装するチケットへ入れます。境界契約 `ctr-<boundary_id>` は `ctr` ユニットを持つチケットと、**局所ステップがその境界を `crosses` する全チケット**へ同じ条項で投影されます。片側だけの所有を許しません
+- **数式の配布**: `merge-formulas-to-tickets.js` が `RFC-FORMULAS.json` を読み、各数式を実装チケットの `formulaObligations` へ投影します。実装チケットの重複・`RFC.md` origin・欠落シンボル・欠落テストは拒否されます（チケット側の digest 不一致は `verify-chain` が `FORMULA_DIGEST_MISMATCH` で検出します）
+- **実装順の証明**: `verify-implementation-order.mjs --package` がグラフの硬い辺と成果物の `consumes` / `produces` / `crosses` からチケットの前提を導出し、`IMPLEMENTATION-ORDER.json` を `Tickets.json` の隣に書きます。`--workspace` は全パッケージの union を `WORKSPACIFY-IMPLEMENTATION-ORDER.json` に書きます。`PREREQUISITE_SET_MISMATCH` / `PREREQUISITE_NOT_BEFORE` / `PREREQUISITE_PACKAGE_UNSPLIT` / `PREREQUISITE_PACKAGE_BEFORE` / `IMPLEMENTATION_ORDER_CYCLE` は fail-closed です
+- **前提のチケットへの記録**: 導出した前提は各チケットの `prerequisites` に書かれ、実装ループの冒頭ゲートがそれを再検査します。**依存先が `done` / `reviewed` になる前に make → plan → start → review へ入ることはできません**
+- **ワークスペース全体の保証**: 最終 `verify-chain --require-tickets` が、全グラフ単位がいずれかのチケットへ届き、所有シーケンスの各ステップがちょうど1チケットに届き、操作の実装チケットが全体で1つであることを確認します。フェーズ単位ではなくワークスペース全体に対する保証です
+- **詳細度ガイドライン**: `background` 300字以上 / `scope` を型シグネチャ付きで列挙 / `notes` 複数セクション 500字以上 / `testUnit`・`testIntegration`・`testExceptions` を明記（TDD 必須）
+- **フェーズ統合**: 3 チケット未満のフェーズは後方のフェーズへ自動マージ（Step 5-3。**fresh 経路のみ**）。ID 再採番は `prerequisites[].ticket` と distribution の `implementerTicketId` / `implementerTicketKey` も書き換えます。evolve はキー保護のため再採番しません
+- 出力先は RFC と同階層の `Tickets.json`。**既存 Tickets.json は上書きせず進化**します
+- **進化モード**: モードは引数ではなく `Tickets.json` の有無で決まります。無ければ fresh 生成、あれば `split-evolve.js` が GRAPH / Dirs-Tree / SEQUENCES との差分を導出し、add / update / retire として既存チケットへ適用します。**フェーズ ID・チケット ID は再採番せず、既存の `status` / `round` / `metadata` / authored フィールドは書き換えません**。昇格前に旧 `Tickets.json` を `Tickets.pre-evolve-<stamp>-<digest>.json` へ自動アーカイブします
+- **5つの衝突クラスは拒否せず収束**: new node（硬い辺の位置にフェーズ追加）/ changed node（所有チケットの派生フィールドのみ再計算）/ removed node（`nodeIds` 縮小、全滅なら `retiredFrom` 付き retire）/ split node（元キーと status を維持し追加分を `todo`）/ merged node（最小キーを残し吸収側を retire）。対応付けは `id` → `headingRefs` → `title` / `slug` → Dirs-Tree の `default_files` の順です
+- **全滅時のフォールバック**: `identityLost` のときは旧 `Tickets.json` をアーカイブして fresh 経路を実行し、`--carry-status` が同一性ラダーで status と authored を再付与します。停止も再構築要求も出しません
+- **retire の派生フィールド**: `distribution` / `contracts` / `formulaObligations` / `prerequisites` は空配列ではなく**削除**します（`validate-tickets.js` は空の `contracts` を拒否し、`verify-chain` は空 distribution を空 unit 集合として扱うため）。旧値は `retiredFrom` に保存します
+- **fresh 専用ステップの保護**: evolve では `add-tickets-for-phase.js`（4-1 で適用済み）と `consolidate-phase-tickets.js`（再採番がキーを壊す）をスキップします。`SPLIT_MODE` 未設定時は fresh に倒れるため、従来経路は1バイトも変わりません
+- **ワークロード予算**: `add-tickets-for-phase.js --enforce-work-budget` が `minimumWorkTickets` を下限に、`splitReason`（`tdd-order` / `disjoint-io` / `release-boundary` / `ownership-boundary` / `cohesion`）と `mergeAttempts` / `acceptedDiscretionaryRefusals` を検証します。統合優先で、分割は証拠がある場合だけ許されます
+- **順序の分離**: 物語上のシーケンス順と実装順を分離し、`SEQUENCE_ORDER_MISMATCH` は実データの前提（前のステップが後のステップの事実を produce する）がある場合だけ発火します
+- **逆対応（S1〜S6）**: 逆モードの処理が既存テストをチケットへ対応付け、**Red を持たない契約をすべて記録**し、欠落ごとに再建チケットを1枚生成します（Red の再建 — 「[適合ループ](#適合ループ--4つの入口と第五層)」節の「逆回転に固有の最深の論点」を参照）
+
+### 実装ループ（AI 自動実行）
+
+**4コマンド共通の前提ゲート** — `/make-ticket`・`/plan-ticket`・`/start-ticket`・`/review-ticket` は、それぞれの冒頭で `check-ticket-prerequisites.js` を実行します。チケットが `prerequisites` を持つ場合、前提チケットが `done` か `reviewed` に達していなければ `PREREQUISITE_NOT_DONE` / `PREREQUISITE_TICKET_MISSING` / `PREREQUISITE_TICKETS_MISSING` で停止します。ゲートはグラフ・成果物・契約レジストリ・tree manifest から前提集合を再導出して `ticket.prerequisites` と突き合わせるため、フィールドを手で書き換えても `PREREQUISITE_SET_MISMATCH` / `PREREQUISITE_NOT_BEFORE` で拒否されます。`prerequisites` を持たないチケット（Case B や分割前のチケット）は `skipped:no-prerequisites`、まだ存在しないチケットは `skipped:ticket-not-found` で従来どおり進みます。
+
+#### `/make-ticket <P{phaseID}-{ticketID}>`
+
+実装仕様書（spec）を作成・詳細化します。status を `made` に遷移します。
+
+- **Step 0（前提ゲート）**: 依存先が未完了なら、この時点で停止します。plan / start / review も同じゲートを持つため、直接進入しても回避できません
+- **Step 1（文脈表示）**: `show-ticket-context.js` が全フィールドを Markdown で出します。分布を持つチケットでは `## Distribution Obligations` / `### Work Share`（自分の作業・共有ステップの owner・参照ユニット・境界契約）、`## Operation-Boundary Contracts`（ステップごとの Pre/Post/Invariant と `consumes` / `produces` / `errors` / `crosses`）、`## Implementation Prerequisites` が加わります
+- **Step 1.5（分布ブリーフ・条件付き）**: 上の節があるときだけ、**(1) 自分の作業 → (2) 共有作業 → (3) 参照作業 → (4) 境界契約 → (5) 実装前提** の順に読みます。共有ステップは再実装せず、境界契約をインターフェースとして扱います。節が無ければ Step 2 へ進み、**Case B と分割前チケットの動作は1バイトも変わりません**
+- **Step 2〜3**: チケットが無い場合は Case B（会話に基づく作成）または Case C（中断）。テンプレートマーカーを11フィールドへ挿入
+- **Phase 1（TDD）**: `testUnit` / `testIntegration` / `testExceptions` を先に固める
+- **Phase 1.5（契約定義・展開）**: Contracts（Precondition/Postcondition/Invariant）をテスト可能な形へ翻訳し、各要素を `testUnit` に対応付ける（Gate M で検証）
+- **Phase 1.6（分布由来のテスト・条件付き）**: 実装ユニットは id を、局所ステップは生成された契約 id と4軸を、`ctr-*` / `crosses` 境界は `contract-<boundary_id>` と `@verifies contract-<boundary_id>` を、参照ユニットは提供元チケット／パッケージをテスト計画に名指しします。**配布された契約は、そのチケットの契約と被覆テストとして過不足なく計画されなければなりません**
+- **Step 7〜8**: 契約カバレッジ検証（`verify-make-contracts.js`）→ STUB 列挙・対象検証・例外なしゲート
+- **Step 9（spec 出力）**: `specs/<ticketKey>.md` に `## Distribution Obligations` / `### Work Share` / `## Operation-Boundary Contracts` / `## Implementation Prerequisites` を含めます。生 JSON にしか無い契約・前提は spec 欠陥です
+- **Step 9.5（配布の納品ゲート・自己スキップ）**: spec を書いた後に `verify-make-distribution.js` を必ず実行します。分布を持たないチケットは `skipped:no-distribution` で素通りします。`STEP_CONTRACT_UNTESTED` / `CROSSED_BOUNDARY_CONTRACT_NOT_DELIVERED` / `CROSSED_BOUNDARY_CONTRACT_UNTESTED` / `STEP_AXIS_NOT_DELIVERED` / `OPERATION_OBLIGATION_UNPLANNED` 等は、ユニット・ステップ・軸・節を名指しして停止します
+- 調査 → マーカー置換 → 契約カバレッジ検証 → STUB 検証 → spec 出力 → status `made`
+
+#### `/plan-ticket <P{phaseID}-{ticketID}>`
+
+チケットの実装計画を策定し、承認を得ます。status を `planned` に遷移します。
+
+- **前提ゲート**: 冒頭で `check-ticket-prerequisites.js` を実行し、依存先が未完了なら停止する
+- **Step 3.5（契約→テストコード翻訳）**: 各契約要素を実コードパターンとして `planTestCode` フィールドに書き出す（Gate P で検証）
+- 犯罪・スタブ点検（Malfeasance.json / `[::STUB::]`）を実施し、計画承認条件を満たす
+- 実装計画は「実装時未知数ゼロに近い」コードスニペットを含む高密度情報であることが必須
+- 計画完了後、spec を再出力して status `planned`
+
+#### `/start-ticket <P{phaseID}-{ticketID}>`
+
+計画に従い TDD（Red→Green→Refactor）で実装を実行します。status を `done` に遷移します。
+
+- **前提ゲート**: 冒頭で `check-ticket-prerequisites.js` を実行し、依存先が未完了なら停止する
+- **犯罪最優先解決**: 未解決犯罪（Malfeasance.json）があれば本チケットより優先して解決
+- **Red**: 100% カバレッジの失敗テストを先に書く。契約の Pre/Post/Invariant を `@verifies` アノテーション付きテストへ翻訳
+- **Green**: 一般化された正しい実装（ハードコード・入力分岐・スタブでの偽装は禁止）
+- 実装ファイルに `[::TICKET::]` プロビナンス注釈を付与（`annotate-ticket-context-by-git-diff.js`）
+- コンパイル検証・テスト・品質チェック通過後に status `done`
+
+#### `/review-ticket <P{phaseID}-{ticketID}>`
+
+`done` チケットの品質検証を行います。通過後 status を `reviewed` に遷移し、パイプライン変更をコミットします。
+
+- **前提ゲート**: 冒頭で `check-ticket-prerequisites.js` を実行し、依存先が未完了なら停止する
+- 犯罪・スタブ点検、未完了実装の能動的探索（7パターン）、ticket-key 注釈の検証
+- コンパイル検証・全テスト実行・静的品質チェック・翻訳可能性チェック
+- 設計情報（Step 1）に対するリスク・漏れ・矛盾・欠落の能動的探索
+- 最終契約充足検証（`verify-final-contracts.js` / `validate-ticket-targets.js`）通過後に status `reviewed` + `completedAt` 記録
+- **Step 12: コミットするが、決して push しない**（push はユーザーの明示的操作）
+
+#### `/condense-tickets`
+
+現在のパッケージの `Tickets.json` を、version-3 の**連続区間分割の最小数**まで凝縮します。再分割はしません。
+
+- **引数はありません。** 対象は**カレントディレクトリの `./Tickets.json`**、モードもコマンド側で固定されます。`--plan` / `--apply` / `--gate` / `--workspace` はスクリプトの内部フラグであり、コマンド引数ではありません
+- **凝縮の単位**: 契約・前提・実装順が連続している隣接チケットを1つに統合します。生存チケットはキーと id を保持し、吸収されたキーは `condensedFrom` に記録されます。**キーの振り直しは行いません**
+- **散文は保持**: 吸収されたチケットの本文は `background` / `notes` / `invariants` / `scope` 配下へ `### From <key>: <title>` として移されます。AI が要約・再執筆することはありません
+- **派生フィールドは再導出**: 契約・数式・前提・related id は吸収キーを remap して再計算されます。被覆・閉包・チェーン・実装順のゲートが失敗した場合、アーカイブから復元して exit 1。ゲートを緩めることはありません
+- **手順**: `--plan` で書き込み前の計画を表示 → `--apply` でアーカイブ → 統合 → 再計算 → 原子的書き込み → ゲート → 再実行で `NO_CHANGE`
+- ワークスペース内のパッケージであれば、適用後にワークスペースの実装順を1回だけ再生成します。ワークスペース全体を対象にする場合は `/condense-workspace`
+
+#### `/condense-workspace`
+
+`WORKSPACIFY-TREE-MANIFEST.json` が宣言する**すべてのパッケージ**を1回で凝縮します。`path: "."` のワークスペースルートパッケージも含みます。
+
+- **引数はありません。** 対象はカレントディレクトリの manifest。manifest が無ければ `MISSING_TREE_MANIFEST` で、書き込み前に停止します
+- **対象の決定**: `workspace.packages[].path` が唯一の権威です。行は解決パスで重複排除し、manifest の順序を保ちます。tree manifest が無い場合に限り、ファイルシステム走査（`Tickets.json` + `*-GRAPH.json` + `*-Dirs-Tree.json`）へフォールバックします
+- **3つの非対象**: `Tickets.json` を持たないパッケージは `skipped:unsplit`、ディレクトリが存在しない行は `skipped:missing-directory`、manifest が名指ししない `Tickets.json` は `unlisted` として**報告のみ**。いずれも凝縮も作成もしません（graph と Dirs-Tree を持たないルート集約 `Tickets.json` は unlisted ではありません）
+- **失敗しても継続**: 1パッケージの失敗はそのアーカイブを復元し、残りのターゲットを最後まで試行します。全試行後に exit 1
+- **実装順**: ループ後にワークスペース実装順を**ちょうど1回**書き込みます。変更が1パッケージも無ければ書きません
+- **手順**: `--plan --workspace="$PWD"` → `--apply --workspace="$PWD"` → 再実行で全パッケージ `NO_CHANGE`
+- 単一パッケージだけを対象にする場合は `/condense-tickets`
+
+#### `/resolve-ticket [P{phaseID}-{ticketID}]`
+
+指定ディレクトリ配下の警告・エラー・スタブ・犯罪を一括解決します。**チケットの status は一切変更しません。**
+
+- コンパイルチェック・テストで警告/エラーを捕捉 → 即時解決 or `insert-stub.js` で解決予定チケットを紐づけて抑止
+- スタブ一覧・犯罪一覧（ディレクトリスコープ）を取得し、全て解決するまで完了と宣言しない
+- 引数にチケットキーを指定すると、そのチケットの targetStubs/targetCrimes の列挙・検証も実行（Step 7.5）
+
+#### `/consolidate-stubs`
+
+既存の `[::STUB::]` マーカーを**解決キーの正規化によりチケット単位へ束ね直し**ます。`/find-omissions` の**必須前提**です。
+
+- マーカーを単一の成果物（unit）単位にグループ化し、unit ごとの resolve key を 1 つに正規化（マーカー行の編集のみ。チケットは作成しない）
+- グループ化結果を `./manifests/CONSOLIDATED-MANIFEST-<ts>.json` として出力（`/find-omissions` Step 1 が消費する成果物）
+- 完了ゲート `consolidate-stubs-gate.sh` が非ゼロなら次へ進めない（terminal excuse・不正キー・非消費マニフェストの検出）
+- `/find-omissions` はこのマニフェストが存在しないと pre-flight で失敗する（`require-consolidated-manifest.js`）
+
+#### `/find-omissions <GRAPHファイルパス>`
+
+reviewed チケットの**契約（Contracts）がテストコードへ正確に翻訳されているか**を全チケット検査し、ギャップを構造化された omission として記録します。実装ループの収束判定を担う計測器です。
+
+- **必須前提**: 実行前に `/consolidate-stubs` を完了し、`./manifests/CONSOLIDATED-MANIFEST-*.json` を生成しておく（pre-flight の `require-consolidated-manifest.js` が検証し、無ければ exit 2 で中止）
+- **Step 1（再チケット化）**: マニフェストを `batch-create-resolving-tickets.js` に渡し、`(sourceKey, unit)` 単位で resolving チケットを機械的に作成（人間への確認はしない）
+- **ABC 検査基準**:
+  - **A（契約翻訳）**: Precondition→テスト入力、Postcondition→アサーション、Invariant→不変条件検証が存在するか
+  - **B（違反検出）**: 契約違反が既存テストのアサーションで検出可能か（違反を入れたら必ず失敗するか）
+  - **C（テスト精度）**: アサーションが曖昧でなく、負のテスト・境界テスト・循環論法の排除がされているか
+- 発見したギャップは `passed=false` の評価として**発見即記録**（証拠ファイル:行を添える）
+- 全チケット検査後、`phasify-omissions.js` が omission を `Tickets.json` に**機械的にマージ**（新規フェーズは `Omissions: ` プレフィックスで命名、round をインクリメント）
+- 成功時にマニフェストとロールバックバックアップを削除（`clean-consolidation-artifacts.js`）。再実行には新たな `/consolidate-stubs` が必要
+- マージされた omission チケットは実装ループに戻り、**収束するまで再実装が繰り返される**
+
+### ハーネス進化（AI 実行）
+
+#### `/pickup-conver-update-candidates`
+
+conver がインストールされたプロジェクトの `.claude` に生じた局所変更を、conver 本体へ還流させる候補として抽出します。開発活動そのものを入力にする自己進化ループの入口です。
+
+- **走査範囲**: リポジトリ直下の `.claude` のみ。`git diff --stat @{u} -- .claude` が空でも untracked ファイルがあれば候補対象になります。`.claude` 外は完全に対象外です。`scan` は変更ファイルごとに差分本体を fenced block で出力するため、AI は別コマンドで差分を取り直す必要がありません
+- **判定**: G1〜G6 の必須ゲート、10 の価値カテゴリ、X1〜X8 の除外基準、S-R-G-R-V（Symptom / Remedy / Generality / Risk / Verification）の完全性をハンク単位で適用します。汎用吸収すべきと判断したものだけが候補になります
+- **スキーマ参照**: `schema` サブコマンドが、全ゲート・除外の規則文、価値カテゴリ、必須の location / evidence フィールド、enum、`create` が自動計算する項目、`update` のホワイトリストを出力します。`criteria.js` と `schema.js` から導出されるため、実装ファイルを読まずに候補を書けます
+- **出力**: ワークスペース直下の `CONVER-UPDATE-CANDIDATES.json`（厳格スキーマ・全件）と `CONVER-UPDATE-CANDIDATES.md`（JSON から自動生成・上限付き表示）。JSON が唯一の真実で、Markdown は手編集しません
+- **記録**: 候補は `criteriaVersion 1.0.0` とともに記録され、`sha256` の内容指紋で重複を排除します。基準外の変更は stdout にだけ表示され、JSON には残しません
+- **fail-closed**: upstream が未設定なら推測せず停止します。`.claude` 外を指すパスは symlink を含めて拒否します
+- **CRUD**: `scan` / `schema` / `create` / `list` / `show` / `update` / `delete` / `render`。`create` は `--candidate=-`、`update` は `--patch=-` で stdin から JSON を読めるため、一時ファイルが不要です。失敗はすべて修復指示（Cause / Artifact / Field / Action / Verify）付きで返ります
+
+### ナレッジスキル生成（AI 自動実行）
+
+資料となる英語 Markdown から、AI が辿れる OKF v0.2 スキルを構築します。生成物は `.claude/skills/` 配下にインストールされ、実行時は `dist/skill.mjs` が同梱の `okf/` を解決します。
+
+**共通の品質契約**
+
+- 入出力は**位置引数のみ**。フラグ、絶対パス（リポジトリ外）、CJK 資料は拒否されます
+- ビルドは `source → manifest → lock → OKF → runtime → dist` の順で、**検証前にインストールしません**
+- 正準検証器は `check_set_version: 3` の36チェック。dev と installed の両方で、必須チェックがすべて `machine_verified` であることが合格条件です
+- `rebuild` はバイト同一を出力し、`node --test` で影響範囲のテストを実行します（`make test` は禁止）
+- 生成スキル直下に **`PRE-OKF-ORIGINAL.md`** と `source/pre-okf-original.json` を置きます。前者は OKF 化前の原典（LF 正規化・非編集）、後者は原典の alias・`sha256`・`bytes` の台帳です。原典は `okf/` の外にあり、マニフェスト・被覆・秘匿化の対象にはなりません
+- 生成ツリーはチケット ID、プロジェクト名、元の絶対パス、CJK を含みません。原典だけが意図的な例外です
+- リポジトリ同梱の**理想お手本**を参照します。law は `.claude/skills/rust-interface-law`、okf は `.claude/skills/natenv-okf`。お手本は参照専用で、source・fixture・acceptance target にはなりません
+
+#### `/build-law-skill`
+
+規範文書から **`*-law` スキル**（法）を構築します。生成物は規則の OKF バンドルに加え、`applies` / `resolve` / `context` / `gate` / `attest` / `explain` / `expand` / `template` / `scaffold` などの CLI を持ちます。
+
+**使い方**
+
+```text
+# 1ソース（位置引数）
+/build-law-skill team-law=docs/team-rules.md
+
+# 複数ソースを1スキルへ（位置引数）
+/build-law-skill team-law docs/rules-a.md docs/rules-b.md
+
+# または名前を繰り返す
+/build-law-skill team-law=docs/rules-a.md team-law=docs/rules-b.md
+
+# 複数スキルを1回で
+/build-law-skill a-law=docs/a.md b-law=docs/b.md
+
+# 特定の場合だけ起動する法（自由記述トリガ）
+/build-law-skill team-law=docs/team-rules.md
+
+Apply only when the changed path matches crates/api/**.
+```
+
+- 引数の最初の空行までが source 一覧、それ以降が**自由記述の適用条件**です。自由記述があるときは1スキルだけを構築します
+- 特定ケース型の場合、AI が英語の電報文体の `instruction` と `conditions` を執筆し、機械が検証して `source/applicability.json` に記録します。`applies` は条件内で exit 0、条件外で exit 3（skip）を返します
+- 生成後、`CLAUDE.md` と `make` / `plan` / `start` / `review` / `resolve` の5コマンドへ、汎用チェックポイント行とスキル別トリガ行を**各1行ずつ**注入します。注入は冪等で、CLI・JSON・メタデータはホストファイルへ漏れません
+- **主なゲート**: 正準検証器 dev/installed、coverage の gap/overlap 0、`rebuild` バイト同一、禁止トークン 0、`gate` と `attest`、統合ゲート（`verify-law-integration.mjs --mode check --require-skill`）、frontier アクションの実行可能性、`implementation-check` の finding 明細、PRE-OKF 原典の一致
+- **出力**: `.claude/skills/<name>-law/`、隣接する `<name>-law.path-alias.json`、検証記録 `target/law/`、受け入れ記録 `target/law/law-builds.json`
+
+#### `/build-okf-skill`
+
+資料から **`*-okf` スキル**（OKF v0.2 wiki）を構築します。生成物は `list` / `expand` / `outgoing` / `incoming` / `required` / `context` / `search` / `validate` などの traversal CLI を持ち、`SKILL.md` は13セクション以上・10シナリオ以上の探索マニュアルになります。
+
+**使い方**
+
+```text
+# 1ソース
+/build-okf-skill handbook-okf docs/handbook.md
+
+# 複数ソースを1つの wiki へ
+/build-okf-skill handbook-okf docs/part-a.md docs/part-b.md
+
+# 複数スキルを1回で
+/build-okf-skill a-okf=docs/a.md b-okf=docs/b.md
+```
+
+- 概念 ID は `okf/` からの相対パス（`.md` を除く）。本文 Markdown リンクがグラフで、frontmatter に `links` は書きません
+- 複数概念のバンドルでは、preamble 以外の各概念が `x-requires` を宣言します。`required --entry <末尾概念>` が推移閉包を返さない「フラットな束」は不合格です
+- **主なゲート**: 正準検証器 dev/installed、conformance（公式3条件）、lint（壊れたリンク・孤児・未知の型/キー・stale）、coverage の `unmappedHeadings` / `unmappedPreamble` / `unmappedLines` がすべて 0、graph、context（予算超過は `BUDGET_EXCEEDED` で切り詰めない）、usage、determinism、distribution、PRE-OKF 原典の一致
+- **出力**: `.claude/skills/<name>-okf/`、隣接する `<name>-okf.path-alias.json`、検証記録 `target/okf/`、受け入れ記録 `target/okf/okf-builds.json`
+- `CLAUDE.md` やパイプラインコマンドは**変更しません**（ホスト非改変が不変条件）
+
+**生成後の確認（共通）**
+
+```bash
+# law: 適用判定 → 規則の解決 → フェーズ単位の文脈配信
+node .claude/skills/<name>-law/dist/skill.mjs applies --root "$REPO_ROOT" --paths <changed-path>
+node .claude/skills/<name>-law/dist/skill.mjs resolve --root "$REPO_ROOT" --paths <changed-path>
+
+# okf: 入口一覧 → 概念の展開 → 必須閉包
+node .claude/skills/<name>-okf/dist/skill.mjs list
+node .claude/skills/<name>-okf/dist/skill.mjs expand --id <concept-id>
+node .claude/skills/<name>-okf/dist/skill.mjs required --entry <concept-id>
+```
+
+### 出荷ループ（人間＋AI 実行）
+
+#### `/crystalize-readme`
+
+引数なしで実行します。パッケージ直下の `RFC-GRAPH.json`（無ければ唯一の `*-GRAPH.json`）を内部で導出し、パッケージ README とワークスペース README を境界契約文書としてセクション単位で検証・生成します。生成 README は英語のみです。書けないセクションは RESIDUE（証拠＋実装補強設計）として README 内に残し、`/drill-rfc-down` のチケット化素材とします。コマンドは「全セクション complete|residue」「marker 文法正常」「residue レジストリ整合」で収束し、RESIDUE 0 は外側の出荷判定が確認します。詳細は「[/crystalize-readme — 出荷ループの入口](#crystalize-readme--出荷ループの入口)」を参照。
+
+### 進化ループ（人間＋AI 実行）
+
+#### `/drill-rfc-down [<material file|directory>...]`
+
+正典 RFC を進化させます。入力（crystalize の RESIDUE / ユーザーとの自由会話 / 与えられた資料）を grill で確定し、GRAPH・Dirs-Tree・Tickets を差分として矛盾なく更新して verify で5成果物の相互整合性を機械検証し、積み増しチケットを生成します。問いは先に**先行記録から確定を試み**、確定できなかった点だけを `/grill-me-for-rfc`・`/explain-seed` とバイト同一の question-gate ブロックで束ねて聞きます。引数はマテリアル（参考資料）のファイル/ディレクトリで、RFC パスは `Tickets.json` の `metadata.resolvedPaths` から解決されます。詳細は「[/drill-rfc-down — 進化の扉](#drill-rfc-down--進化の扉)」を参照。
+
+#### `/amend-rfc-up [<material file|directory>...]`
+
+正典が揃ったパッケージへ、**既に決まった変更**を証跡付きで適用します。自由記述の指示を差分に分解し、RFC の `## Design Amendments` への追記、GRAPH・Dirs-Tree・Tickets の再導出、規則・義務・surface の網羅台帳、workspace 横断 impact の検証までを非対話で実行します。質問はせず、決定できない点は「最小・後方互換・可逆」で埋めます。`materialized-fresh` / `materialized-stale` のみ対象で、`standalone` / `partial` は `/grill-me-for-rfc` へ誘導します。終端は `DESIGN_AMENDED` / `NO_CHANGE` / `BLOCKED`。drill との使い分けは「[/drill-rfc-down — 進化の扉](#drill-rfc-down--進化の扉)」の「amend-rfc-up と drill-rfc-down」を参照。
+
+---
+
+## conver.js — ACP ベースのチケット処理パイプライン
+
+`conver.js` はこのプロジェクトの中心的な成果物です。`@agentclientprotocol/claude-agent-acp` を通じて Claude Code のセッションをプログラムから制御します。既定では **workspacify から drill までの全段**を、ワークスペースルートとパッケージディレクトリを安全な実装順に移動しながら実行します。`-T` を渡すと、正準順序の任意の連続区間（例: 実装グループのみ `make,plan,start,review,resolve,consolidate,find`）を同じ順序で実行します。
+
+### 使用方法
+
+conver は **ワークスペースルート** で実行します。必要な入力は `-T` の先頭段階で決まります。
+
+- **既定（`-T` 省略）**: workspacify 起点の全段計画です。ワークスペースルートの `SYSTEM-DESIGN.md` だけが必要で、マニフェストは workspacify が生成します（既に両方が `COMPLETE` なら読み込んで続行）。
+- **workspacify から開始**: 同上。`SYSTEM-DESIGN.md` が必要です。
+- **educe から split までで開始**: tree manifest と allocate manifest が必要です。`Tickets.json` はまだ不要です。
+- **make 以降から開始（実装グループ）**: `WORKSPACIFY-TREE-MANIFEST.json`・`WORKSPACIFY-ALLOCATE-MANIFEST.json`・`WORKSPACIFY-IMPLEMENTATION-ORDER.json` と、全パッケージの `Tickets.json` が必要です。`-w` はこの計画でのみ使用できます。
+
+4層ループの単一ディレクトリ実行はサポートしません。
+
+```bash
+cd ~/shyme/doors
+node "$(git rev-parse --show-toplevel)/.claude/scripts/conver/conver.js" -k <api_key> -s <slack_url> [options]
+# 対象パッケージを絞る（繰り返し／カンマ区切り、部分一致・一意解決）
+node .../conver.js -k <key> -s <url> -P doors-core -P doors-operation
+```
+
+実装グループ（make 以降）の計画では、起動時に次を検証し、失敗した場合はセッションを開始せずに終了します。
+
+- 3つのルートマニフェストの存在と `COMPLETE`
+- `workspacify-order/run.mjs` が実装順を受理すること（`--record` なし）
+- 全パッケージに `Tickets.json` が存在すること
+- パッケージ指定が一意に解決できること
+- 指定が未完了の先行パッケージを飛ばさないこと
+
+workspacify 起点の計画は `SYSTEM-DESIGN.md` の存在だけを、educe 起点の計画は tree manifest と allocate manifest を検証します。
+
+### CLI オプション
+
+| フラグ | 説明 | デフォルト |
+|--------|------|-----------|
+| `-k`, `--api-key` | API Key（任意。keyless プロバイダーでは省略可） | — |
+| `-s`, `--slack-url` | Slack Incoming Webhook URL（必須） | — |
+| `-P`, `--package` | 対象パッケージ名。繰り返し／カンマ区切り。部分一致は一意な場合のみ。`-w` 併用時は全 selected が endpoint で exit 0 | 全パッケージ |
+| `-c`, `--count` | ワークスペース全体で処理するチケット数の上限 | `999999` |
+| `-r`, `--resolve-every` | パッケージごとに N チケット完了ごとに resolve | `3` |
+| `-p`, `--push` | resolve 後に `/epush-branch` を実行（0/1） | `1` |
+| `-m`, `--model` | 使用モデル | `deepseek-flash` |
+| `-v`, `--verbose` | 詳細表示（0/1） | `1` |
+| `--timeout` | 各コマンドのタイムアウト（秒） | `5400` |
+| `-b`, `--bind-review-in-one-session` | make/plan/start/review を同一セッションに結合（0/1） | `1` |
+| `-w`, `--watcher` | Watcher 設定ファイルのパス（指定時は Watcher モード起動。endpoint で exit 0） | — |
+| `-n`, `--no-find` | 全 reviewed 後の find をスキップ（consolidate は実行）（0/1） | `0` |
+| `-T`, `--tasks` | 実行する段階の連続区間。正準順序の部分列のみ。再実行可能な段階だけが `:N` を受け取る | `workspacify,educe:2,explain,grill:2,smooth:2,graphify:1,boundify:1,split:1,make,plan,start,review,resolve,consolidate,find,crystalize,drill` |
+| `--max-find-rounds` | パッケージごとに find を実行できる回数。上限到達で停止して Slack 通知 | `5` |
+| `--no-dashboard` | 固定進捗ヘッダーを無効化 | 無効（ヘッダー表示） |
+| `--dashboard-interval` | ヘッダーのポーリング間隔（秒） | `5` |
+| `-h`, `--help` | ヘルプ表示 | — |
+| `--version` | バージョン表示 | — |
+
+チケットはパッケージごとに導出し、再送は3回のエスカレーションに固定されています。
+
+### `-T` — パイプライン全体の選択実行
+
+`-T` は、次の正準順序の**連続した部分列**を実行します。
+
+```
+workspacify, educe, explain, grill, smooth, graphify, boundify, split,
+make, plan, start, review, resolve, consolidate, find, crystalize, drill
+```
+
+- **連続性**: 段階を飛ばした区間（gap）、逆順、重複は起動時に拒否され、セッションは開始されません。
+- **`:N`**: 再実行可能な段階（educe, grill, smooth, graphify, boundify, split, crystalize）だけが回数を受け取ります。それ以外の段階に `:N` を付けると拒否されます。N は**累積目標回数**です。段階の記録済み実行回数が N に達していれば skip、未満なら実行し、記録が読めない場合は実行します（未完了を証明できないため）。パッケージスコープはパッケージ単位で判定し、同じ round を全パッケージに配ってから次の round へ進みます。ワークスペーススコープ（workspacify, educe, smooth）は root の記録で判定します。crystalize の `:N` は同一サイクル内の出荷パスの回数で、累積カウンタではありません。
+- **workspacify**: `/workspacify-tree` → `/workspacify-allocate` を1段階として順に実行します。`/workspacify-reverse` は含まれません。
+- **cwd**: workspacify, educe, smooth はワークスペースルート、それ以外（drill を含む）はパッケージルートで実行します。
+- **実装順**: split より前は `WORKSPACIFY-ALLOCATE-MANIFEST.json` の `implementation_order.levels`、make 以降は `WORKSPACIFY-IMPLEMENTATION-ORDER.json` の `implementationOrder.levels` を読みます。workspacify・split・drill の後は入力を読み直します。
+- **位相**: 適合・上流の後、全パッケージが実装 endpoint（全チケット終端かつ find がチケットを追加しない digest 一致）に達して初めて出荷へ進みます。crystalize は全パッケージに順に実行し、それが終わってから drill を全パッケージに順に実行します。drill 後に全パッケージの ticket-set digest を比較し、1つでも変化があれば実装へ戻り、変化がなければ完了します。crystalize と drill は回数や実行済みフラグではなく、この位相到達でのみ実行されます。
+- **drill**: `/drill-rfc-down` を**引数なし**でパッケージルートから実行します。`crystalize` を含まない `-T drill` は拒否されます。
+- **非対話**: 適合・上流の段階は記録済み回数で skip されます。educe には固定 `SYSTEM-DESIGN.md` の契約を、explain・grill・drill には人間の判断を求めず最後まで完了する指示を conver が付加します。
+- **既定との互換**: `-T` を省略した場合は全段計画を実行します。実装グループだけを実行したい場合は `-T make,plan,start,review,resolve,consolidate,find` を明示します。`-w` は実装グループ計画でのみ使用できます。
+
+### 実行アーキテクチャ — 5層・厳格順序
+
+`-T` の外側では、スケジューラが **適合 → 上流 → 実装 → 出荷 → 進化** の位相を回します。実装は全パッケージが endpoint に達するまで出荷へ進まず、出荷は全パッケージの crystalize が終わるまで進化へ進みません。drill がチケットを追加すれば実装へ戻り、追加が無ければ完了します。各位相の中では、次の順序を機械的に守ります。
+
+1. **ワークスペース** — ルートの3マニフェストを検証し、`workspacify-order` が受理した実装順を取得する。
+2. **パッケージ** — 実装順の先頭から処理する。未完了のパッケージを飛ばして後ろへ進まない。
+3. **チケット** — 各パッケージの `Tickets.json` を配列順に読み、**最初の非終端チケットだけ**を対象にする。前のチケットが `reviewed`/`R<n>` になるまで次へ進まない。
+4. **工程** — 実行直前に `Tickets.json` を読み直し、status から次コマンドを一対一で導出する。
+   - `todo` → `/make-ticket`
+   - `made` → `/plan-ticket`
+   - `planned` → `/start-ticket`
+   - `done` → `/review-ticket`
+   - `reviewed` / `R<n>` → 終端
+   - `remanded` / 未知 → 停止
+5. **パッケージ境界** — 全チケットが終端になった後だけ `/consolidate-stubs` → `/find-omissions` を実行する。find が新チケットを追加した場合は**同一パッケージ内**で 3 へ戻る（最大5ラウンド。`--max-find-rounds` で変更可）。
+
+- すべてのコマンドは **パッケージディレクトリを cwd** として実行します。make/plan/start/review だけでなく resolve/epush/consolidate/find も同じです。
+- `-b 1`（デフォルト）では make/plan/start/review を同一セッションに結合します。各コマンドの直前には必ず `Tickets.json` を読み直します。
+- `-r` の resolve はパッケージ単位で数え、次のチケットへ進む前に実行します（`-p 1` なら `/epush-branch` も）。
+- `/find-omissions` は引数なしで呼びます。グラフはパッケージ直下の `RFC-GRAPH.json` からコマンド側が導出します（コマンド側の変更は手作業で配布）。
+- 直近10件のコマンド実行を FIFO で保持し、同じチケット・同じコマンドの繰り返しを検知します。3回は英語の指示を強めて再送し、それでも status が進まなければ Slack に停止事由を通知して conver を終了します。
+- Slack は**フェーズ単位**です。フェーズ内の全チケットが reviewed になった時点で、ワークスペース／パッケージ／フェーズ／`n/N`／最後のチケット／パッケージ完了フラグを1行で送ります。進捗一覧や find の統合詳細は送りません。
+
+### コンソール表示と進捗ヘッダー
+
+TTY で実行すると、ACP の全イベントを1つのコンソールに連続表示し、可視領域の先頭に濃紺の進捗ヘッダーを固定します。
+
+- **イベント表示**: agent message（Markdown）、thought、tool call と diff/terminal、plan、notice、usage、subagent、session message、子プロセスの stderr。未知の更新も `update <kind>` として表示し、黙って捨てません。
+- **NOW 行**: 固定領域の最上段に、実行中のパッケージ・コマンド（チケット単位のコマンドではチケットも）を `NOW: [core] /start-ticket P1-9` の形で1行だけ表示します。`/resolve-ticket` はディレクトリ単位のため引数もチケットも表示しません（`NOW: [core] /resolve-ticket`）。パッケージ名はヘッダー行と同じ短縮名です。背景は濃緑 `#14532d`、文字は白。コマンド開始と終了で即時再描画し、待機中は `NOW: idle` を表示します。制御文字は除去し、端末幅を超える場合は `…` で切り詰めるため、折り返しません。非TTYと `--no-dashboard` では出力しません。
+- **固定行の予算**: 固定領域は NOW 行 + パッケージ行 + 必要なら `↑`/`↓` の2行で、常にログ領域を4行以上残します。端末が低い場合はパッケージ行やインジケータを減らし、NOW 行だけを残すことがあります。
+- **ヘッダー**: パッケージを実装順に1行ずつ表示。`todo` はチケット番号、`made=_`、`planned=|`、`done=/`、`reviewed=x`。記号は cyan、番号は white、フェーズIDは薄黄。`%` はディレクトリ単位の `floor(reviewed / total * 100)`。
+- **複数フェーズ**: 各パッケージ自身のフェーズをID昇順で横に並べ、フェーズ間は半角スペース1つにします。行をまたいで揃えるのはパーセント列だけです。端末幅に収まらない場合はフェーズ単位で省略し、`…` をパーセントの前に置くため、`%` と表示済みフェーズの色は失われません。
+- **ポーリング**: 既定5秒。`--dashboard-interval` で1〜60秒に変更できます。
+- **スクロール**: パッケージ数が表示行を超えると `↑ N more` / `↓ N more` の窓になります。`↑`/`↓`、PageUp/PageDown、Home/End で移動し、`f` で実行中パッケージの自動追従に戻ります。
+- **初期化**: 最初の描画で可視画面をクリアし、シェルが残した折り返し状態を捨てます。各ヘッダー行は `\x1b[2K` で消してから描き、高さ・幅・行数のいずれかが変わったら DECSTBM を再発行します。ヘッダーだった行がログ領域に変わる場合は、その行も消去します。
+- **制御列のサニタイズ**: ツール出力と子プロセスの stderr は信頼しません。SGR（色）以外の CSI（カーソル移動・消去・代替画面など）、OSC/DCS、CR などの制御文字は描画前に除去します。コマンドの進捗表示が stdout をヘッダーへ押し上げることはありません。
+- **フォールバック**: 非TTY・CI・cron では DECSTBM もカーソル移動も出力せず、通常のログ表示になります。`--no-dashboard` でヘッダーだけを無効化できます。
+- **終了時**: タイマーを止め、スクロール領域・カーソル・raw mode を復元します。
+- **依存**: `marked` / `marked-terminal` / `chalk` / `wrap-ansi` を使用します。`terminal-kit` は単一ESMバンドルで termconfig の動的 require が失敗するため採用していません。
+
+### チケットのステータス遷移
+
+```mermaid
+stateDiagram-v2
+    [*] --> todo
+    todo --> made: /make-ticket
+    made --> planned: /plan-ticket
+    planned --> done: /start-ticket
+    done --> reviewed: /review-ticket
+    reviewed --> remanded: /find-omissions が検査対象として一時差し戻し
+    reviewed --> RN: omission マージ後
+    state "R1, R2, …（round）" as RN
+```
+
+| status | 表示 | 意味 |
+|--------|------|------|
+| `todo` | `[ ]` | 未着手 |
+| `made` | `[_]` | spec 作成完了 |
+| `planned` | `[\|]` | 実装計画承認済み |
+| `done` | `[/]` | 実装完了（未レビュー） |
+| `reviewed` | `[x]` | レビュー完了 |
+| `remanded` | `[!]` | `/find-omissions` が検査対象として一時的に差し戻した状態 |
+| `R<N>` | `[R<N>]` | round 対応ステータス。omission マージ後、既存レビュー済みチケットは `R1`, `R2`… とラウンドが進む |
+
+- `/resolve-ticket` は status を変更しません（警告・エラー・スタブ・犯罪の解決専用）
+- フェーズのチェックボックスは配下の全チケットが `reviewed`（または round 済み）の場合のみ `[x]` になる（動的評価）
+
+### Watcher モード — 定期実行による半自律運用
+
+`-w <config.json>` を指定すると、通常の 1 回実行ではなく **Watcher モード** で起動します。node-cron を用いて一定間隔で `runWorkspaceLoop` を自動再実行し、いずれかのフィルターにマッチしたときだけ動作します。
+
+```json
+{
+  "timezone": "Asia/Tokyo",
+  "intervalMinutes": 5,
+  "packages": ["doors-core", "doors-operation"],
+  "filters": [
+    {
+      "days": ["2026-11-10", "2026-11-11"],
+      "startTime": "09:00",
+      "endTime": "18:00"
+    },
+    {
+      "daysOfWeek": [1, 2, 3, 4, 5],
+      "startTime": "19:30",
+      "endTime": "09:30"
+    },
+    {
+      "startTime": "00:00",
+      "endTime": "23:59"
+    }
+  ]
+}
+```
+
+| フィールド | 説明 | 制約 |
+|-----------|------|------|
+| `timezone` | IANA タイムゾーン名 | 例: `"Asia/Tokyo"`, `"America/New_York"` |
+| `intervalMinutes` | **トップレベルに1つだけ**。cron の発火間隔（分） | 1 以上、525,600（1年）以下、整数 |
+| `packages` | 対象パッケージ名（任意）。CLI `-P` と同じ解決規則 | 空配列不可、重複不可 |
+| `filters` | 優先順に評価するフィルター配列。**低いindexが優先** | 非空 |
+| `filters[].days` | 実行を許可する日付（`YYYY-MM-DD`） | 実在日付のみ、重複不可、空配列不可 |
+| `filters[].daysOfWeek` | 実行を許可する曜日（0=日〜6=土）。各瞬間の現地曜日で判定 | 0..6、重複不可、空配列不可 |
+| `filters[].startTime` | 稼働開始時刻（HH:mm、24時間表記） | 例: `"09:00"` |
+| `filters[].endTime` | 稼働終了時刻（HH:mm、24時間表記） | 例: `"19:00"` |
+
+- フィルターは先頭から評価し、**最初にマッチしたフィルターだけ**を見ます。どれにもマッチしなければその発火は待機します。
+- `days` と `daysOfWeek` は AND です。どちらも**その瞬間の現地の日付・曜日**で判定します。日跨ぎ窓では両側が別の暦日になるため、両側を動かしたい場合は両方の日付・曜日を列挙します。
+- 旧形式（トップレベルの `intervalMinutes` + `startTime` + `endTime` + `daysOfWeek`）は1要素の `filters` に正規化して受け入れます。既存ワークスペースの設定を編集する必要はありません。
+- `intervalMinutes` はフィルター単位には設定できません。時間帯ごとに異なる間隔が必要になった場合は別チケットで拡張します。
+
+**動作フロー**:
+
+```mermaid
+flowchart TD
+    START(["-w config.json で起動"]) --> WATCH["runWatcherMode"]
+    WATCH --> VALIDATE["設定ファイルを読み込み<br/>全フィールドをバリデーション"]
+    VALIDATE -->|不正値| ERROR(["エラー終了"])
+    VALIDATE --> WINDOW{"優先順にフィルターを評価し<br/>最初にマッチしたか"}
+    WINDOW -->|どのフィルターにも不一致| WAIT["waitForWindow<br/>プロセスは生存したまま<br/>60秒間隔で再判定"]
+    WAIT --> WINDOW
+    WINDOW -->|枠内 かつ全 selected が endpoint| ENDPOINT(["endpoint 終了（exit 0）"])
+    WINDOW -->|枠内| CRON["CronScheduler を起動<br/>intervalMinutes 間隔で runWorkspaceLoop を定期実行<br/>フィルターは timezone 基準"]
+    CRON --> CHECK{"チケット境界・各フェーズの直前<br/>（make/plan/start/review/resolve/find）<br/>時間枠内か"}
+    CHECK -->|枠外| WAIT_PHASE["waitForWindow<br/>枠内に戻るまで待機"]
+    WAIT_PHASE --> CHECK
+    CHECK -->|枠内| RUN["status から次コマンドを導出して実行<br/>直前に Tickets.json を再読込"]
+    RUN -->|全 selected が endpoint| ENDPOINT
+    RUN --> CRON
+    CRON -.->|SIGINT/SIGTERM（任意の時点）| STOP(["グレースフルシャットダウン"])
+```
+
+**Endpoint と完了記録**:
+
+- **境界の skip**: 全チケットが terminal で、`.conver-boundary.json` の ticket-set digest が一致し、consolidate/find が COMPLETE（または `-n` による find の SKIPPED）で、final resolve が済んでいるパッケージは `/consolidate-stubs` と `/find-omissions` を再実行しません。
+- **legacy 完了の adopt**: 全チケットが terminal で、読める `.conver-boundary.json` が無いパッケージ、または boundary が開始済みで未完のパッケージ（`consolidate` / `find` が non-null）は、境界を実行せず `completionSource: "legacy"` の完了記録を書いて endpoint にします。`/consolidate-stubs` も `/find-omissions` も走りません。破損・部分書き込みも同じ扱いで、警告だけを出します。
+- **境界が走る条件**: 全 terminal でも、次は adopt しません — 完了した find の digest が現在の ticket set と不一致（ticket set が変わった）、または boundary が未開始で `lastReviewedAt` / `reviewedSinceResolve` が残っている（review が境界を負っている）場合。この2つだけ consolidate/find を実行します。
+- **起動時の resolve**: パッケージ開始時に `reviewedSinceResolve` が cadence に達していても、未 terminal チケットがあれば最初のチケットコマンドを優先し、resolve はその後の iteration で実行します。全 terminal でチケットコマンドが無い場合のみ resolve が先に走ります。`-r 0` は従来どおり resolve を無効化します。
+- **完了記録**: 各パッケージの `Tickets.json` の隣に `.conver-boundary.json` を置きます。最終 review の ticket key と時刻、`reviewedSinceResolve`、consolidate/find の状態と終了時刻、post-find の ticket-set digest、`completionSource`（`boundary` / `legacy`）と `adoptedAt` を保存します。write は temp file + rename で行い、途中で落ちても古い有効な document を読みます。
+- **watcher の終了**: 選択した全パッケージが endpoint になった時点で scheduler を止め、exit 0 で終了します。`-P` で明示選択した場合は、未完了の先行パッケージがあっても何も処理しないため、endpoint 判定を ORDER_CROSSING より先に行います。`-P` を指定しない場合はワークスペース全体が endpoint になったときに終了します。
+- **境界 Slack**: consolidate と find の完了時に 1 通だけ、`[workspace] package consolidate HH:mm / find HH:mm TZ (last: KEY) — added N` を送ります。find が追加したチケットがあれば `added N` で示し、`-n 1` で find を省略した場合は `find skipped` と表示します。
+- **`-n 1` の注意**: `-n 1` は find のみを省略し、consolidate は実行します。endpoint 判定では find を `SKIPPED` として記録します。
+
+> 日跨ぎ窓（`startTime` > `endTime`、例: 22:00〜06:00）では、`days` と `daysOfWeek` の両方を**その瞬間の現地暦日**で判定します。月曜夜から火曜未明まで連続して稼働させたい場合は `daysOfWeek: [1,2]` のように両方の曜日を列挙します。
+
+---
+
+## データモデル
+
+### Tickets.json
+
+`/split-to-tickets` が生成し、実装ループの全コマンドが参照・更新する、開発の単一情報源です。
+
+```
+Tickets.json
+├── title: string
+├── round: integer（omission マージのたびにインクリメント）
+├── metadata: { source, generatedAt, ... }
+├── phases[]
+│   ├── id: integer (-1 は PX: 独立フェーズ)
+│   ├── name: string
+│   └── tickets[]
+│       ├── id: string（P{phaseID}-{ticketID} の複合キー）
+│       ├── title: string
+│       ├── status: "todo"|"made"|"planned"|"done"|"reviewed"|"remanded"|"R<N>"
+│       ├── nodeIds: string[]（GRAPH の N0001〜 と unit ID の対応）
+│       ├── contracts: 契約の配列
+│       │   ├── エッジ契約: { id, sourceEdge, precondition, postcondition, invariant }
+│       │   ├── ステップ契約: { id: "C5xx", sourceEdge: "step:<id>", stepId, sequenceId,
+│       │   │                    sourceStep, operationId, precondition, postcondition,
+│       │   │                    invariant, contractProse,
+│       │   │                    contract: { pre[], post[], invariants[], consumes[],
+│       │   │                                produces[], errors[], crosses[] }, digest }
+│       │   └── 境界契約: { id: "contract-<boundary_id>", sourceEdge: "boundary:<id>",
+│       │                    boundaryId, registryContractId, clauseDigest,
+│       │                    precondition, postcondition, invariant, clauses }
+│       ├── distribution: { sourceMapDigest, sourceViewDigest, digest, units[] }
+│       │   └── units[]: { unitId(op-|seq-|xdir-|ctr-), kind, role, surface, placement,
+│       │                   obligation: { mode: "implement"|"steps"|"flow"|"obligation"|"reference",
+│       │                                 steps[]?, outcome?, providers[]?, implementerTicketId?,
+│       │                                 implementerTicketKey?, boundaryContracts[]?,
+│       │                                 relation?, subject?, direction?, counterpart?, coverage? },
+│       │                   obligationDigest, specRefs[] }
+│       ├── formulaObligations[]: { id, digest, body,
+│       │                          origin{path,line,segment,quote},
+│       │                          implementation{path,symbol,kind},
+│       │                          design, theory, tests[] }
+│       ├── prerequisites: { ticket?, package?, kind, source, boundary? }[]
+│       ├── default_files: string[]
+│       ├── background, scope[], testUnit[], testIntegration[], testExceptions[]
+│       ├── acceptanceCriteria[], invariants
+│       ├── planTestCode[]（/plan-ticket で設定）
+│       ├── changes[], instrumentation, notes
+│       ├── startedAt, completedAt（YYYY-MM-DD）
+│       └── relatedTicketIds
+```
+
+`distribution` と `prerequisites` は、パッケージが `SEQUENCES.json` を持つ場合だけ付きます。持たないチケットにはフィールド自体が無く、`/make-ticket` の分布節・前提節・納品ゲートは発火しません。`contracts` のステップ契約と境界契約は `/split-to-tickets` が `merge-contracts-to-tickets.js` で機械投影したもので、手で短縮・再導出してはいけません。`formulaObligations` は数式を持つパッケージで、`merge-formulas-to-tickets.js` が `RFC-FORMULAS.json` から投影したときに付きます（実装チケットがちょうど1つに定まる数式だけ）。
+
+### OMISSIONS（`/find-omissions` の成果物）
+
+`/find-omissions` は検査中に `_tmp-omissions-<timestamp>.json` へ記録し、完了時に `OMISSIONS-<timestamp>.json` として残します。その後 `phasify-omissions.js` が `Tickets.json` へ機械的にマージします。
+
+```
+OMISSIONS-<timestamp>.json
+├── 各 omission チケット
+│   ├── originalTicketKey: string（検査対象チケット）
+│   ├── severity: "critical"|"major"|"minor"
+│   ├── recommendation: string
+│   └── evaluations[]
+│       ├── criterion: "A"|"B"|"C"（契約翻訳 / 違反検出 / テスト精度）
+│       ├── passed: boolean（false = omission）
+│       ├── reason: string（ファイル+行の根拠付き・自己完結）
+│       └── evidence: { file, line }[]
+```
+
+### 上流ループの成果物（GRAPH / Dirs-Tree / SEQUENCES / SMOOTH）
+
+```
+RFC-GRAPH.json（/graphify-rfc の出力。旧名の木は *-GRAPH.json を読み取り互換）
+├── sourceFile: string
+├── mainLanguage: string
+├── nodes[]: { id(N0001〜), title, kind(12種), summary, language, slug, headingRefs,
+│             unitIds[]（op-|seq-|xdir-|ctr-） }
+└── edges[]: { from, to, type(12種), attributes(strength/bidirectional), contracts[] }
+
+RFC-Dirs-Tree.json（/boundify-graph の出力。旧名の木は *-Dirs-Tree.json を読み取り互換）
+├── nodes[], edges[], trees[], dependencyDirections[]
+├── 実装ディレクトリ境界（languageRules による言語別可視性）
+└── 各ファイルの Initial Design Artifact ヘッダが units: 行で単位を名指しする
+
+SEQUENCES.md / SEQUENCES.json（各パッケージ・/grill-me-for-rfc が射影）
+├── ownedSequenceUnits / crossBoundarySequenceUnits / obligationUnits
+├── 順序付き steps（stepId, operationId, order, line, quote, contract, contractProse）
+└── owner / consumer の役割と境界契約
+
+SMOOTH-SEQUENCES.json（ワークスペース直下・/smooth-sequences の完全レポート）
+├── schemaVersion: 4 / verdict / wouldExit（audit）
+├── checks.subChecks[] / blocked[] / waived[] / downgrade / provenance
+├── readings / denominator / assurance
+└── COMPLETION-CERTIFICATE.json（closure mode の合否）
+```
+
+### CRYSTALIZE（`/crystalize-readme` の成果物）
+
+`/crystalize-readme` は、パッケージの **README.md**（`packageRoot/README.md`）とワークスペースルートの **README.md**、および進捗・判定結果を記録する **CRYSTALIZE-Status.json** を生成・更新します。生成 README は英語のみです。ワークスペース README は管理ブロック方式で、人間が書いた非管理領域を破壊しません。
+
+```
+packages/<unit>/README.md（パッケージ境界契約）
+├── 意味層: 目的・できること・IN/OUT/効果・前提/事後/不変・エラー・制約
+├── 言語利用層: 言語別マトリクスと利用手順
+├── インターフェース層: REST/WebSocket/CLI/gRPC/MCP/A2A の完全仕様
+├── 使い方セクション: 完全な記述 or <::README-RESIDUE::>（証拠＋実装補強設計）
+└── 末尾: Examples セクション: 完全な設計 or <::EXAMPLES-RESIDUE::>
+
+<workspace-root>/README.md（ワークスペース境界契約）
+├── WORKSPACE 管理ブロック: 目的・パッケージ表・依存トポロジ・公開インターフェース・横断レシピ・非目標
+└── PACKAGE:<unit-id> 管理ブロック: unit・path・role・インターフェース・README リンク・契約状態
+
+CRYSTALIZE-Status.json
+├── mode: "fresh"|"refine"（実行モード）
+├── grill.toc: { nodes[], waivers[], retirements[] }（自動導出した目次）
+├── grill.sections: { id, heading, state: "complete"|"residue", evidenceDigest, preserved }（セクション単位の判定）
+├── grill.residues: { id, level, layer, element, evidence[], reinforcement, state: "new"|"persisting"|"resolved" }[]
+├── grill.workspace: { path, unitId, state }（ワークスペース README 更新状態）
+├── examplesApproved: boolean
+└── 各 Step の進行状態（/crystalize-readme の update-step-status.js が更新）
+```
+
+### 第五層と上流ループの運用成果物
+
+#### 要求台帳（`/educe-sequences` の成果物）
+
+`/workspacify-allocate` のあと、上流ループの前に、仕様書から**網羅的なシーケンスとオペレーション**を抽出し、`SYSTEM-DESIGN-sequences.json` として1枚にまとめます。これは4つの内側のループが読む**要求台帳**であり、第四の整合性（実装が完全に一致すること）を、単位IDに対する述語として測れるようにするものです。
+
+台帳は仕様書の純関数であり、ディレクトリを知りません。どのパッケージがどの単位を実装するかは、台帳と `WORKSPACIFY-TREE-MANIFEST.json` の接合から決まります。接合した結果はパッケージディレクトリの`SEQUENCES.md` / `SEQUENCES.json` として置かれ、RFC に書くべき単位がそこから漏れなく読めます。
+台帳が与えられていない場合、`/grill-me-for-rfc` と4つの内側のループの動作は一切変わりません。`/smooth-sequences` は台帳を持つ workspacify ワークスペースだけを対象にします。
+
+**台帳が運ぶのは名前だけではありません。** schema v3 の成果物は、ステップごとに **型付き契約** `contract: { pre[], post[], invariants[], consumes[], produces[], errors[], crosses[] }` を持ちます。`crosses` はそのステップが越える境界IDを名指しし、`pre` / `post` / `invariants` の各事実は「そのステップの引用行」に裏づけられます。境界そのものの契約は `WORKSPACIFY-ALLOCATE-MANIFEST.json` の `contract_registry[]` にあり、ユニットIDは `ctr-<boundary_id>` です。**シーケンス・オペレーション・境界契約の3つが、単位IDとして同じ鎖を流れます。**
+
+#### 受理ゲート（`/smooth-sequences`）
+
+`/grill-me-for-rfc` が全パッケージで終わったあと、`/graphify-rfc` の前に、ワークスペースルートで `/smooth-sequences` を実行します。これは**列挙・契約・配布が閉じているかを機械的に受理する最終ゲート**です。
+
+- 入力は、ルートの `*-sequences.json`、各パッケージの `SEQUENCES.json` / `RFC.md` / `OBLIGATION.json`、2つの manifest、任意の waiver です
+- S1（列挙）/ S3（操作の封筒）/ S4（境界条項と contribution）/ S5（契約の噛み合い）/ S6（危険）/ S7（成果物・ビュー・RFC の一致）を検査します。**証拠面が無い check は「合格」ではなく `blocked`** として報告されます
+- 修復は4経路です。`in-place` は authored な RFC / OBLIGATION / view を直して再生成、`regeneration` は candidate → staging → verify → commit のトランザクションでのみ仕様・decisions を変更、`judgment-required` は `/grill-me-for-rfc` または `/explain-seed` が staging で確定、`blocked` は不足した証拠面を producer で復元します
+- **closure mode** では、grill の6つの機械ゲート（obligation coverage / contribution completeness / distribution completeness / defect report / formula completeness（S8） / API consistency）もここで実行し、`held` 判定・blind attack・freshness・effort trace まで検査します。formula completeness は仕様数式の所有・ledger・theory・実装・テストの完全性を測ります。`COMPLETION-CERTIFICATE.json` が `complete` でなければ `unproven`（exit 4）です
+- 合格は `/graphify-rfc` の Step 0 が `SMOOTH-VERDICT.json` として固定します。**前進経路の `/graphify-rfc` / `/boundify-graph` / `/split-to-tickets` は、合格が無い・古い・不合格のままでは進みません**（進化経路は `/drill-rfc-down` の自前の検証を持ちます）。receipt は `formulaCompleteness` と `worklistDigest` も束縛し、formula summary が `pass` でない場合は `SMOOTH_FORMULA_INCOMPLETE`、worklist が動いた場合は `STALE_SMOOTH_VERDICT` で下流が停止します
+
+#### 要求台帳の配布と波及 — 単位IDが4ループをどう通るか
+
+台帳は仕様書の全体を1枚に持っていますが、**RFC に書くべきなのはそのパッケージぶんだけ**です。その切り出しと、切り出したものが4つのループをどう通るかを、ここに一度だけ書きます。
+
+**与え方** — 特別なフラグはありません。material の1つとして渡すだけです。
+
+```bash
+/grill-me-for-rfc GaiaSekkeiShiyousho_v32.md ~/shyme/gaia/GaiaSekkeiShiyousho_v32-sequences.json
+```
+
+**配布（STEP 0 で起きること）**
+
+```mermaid
+sequenceDiagram
+    participant G as /grill-me-for-rfc
+    participant I as init.js
+    participant M as sequences-material.js
+    participant R as run.mjs
+    participant L as list-files.js
+
+    G->>I: ① init.js
+    Note over I: artifact を Status.json の materialPaths に記録
+    G->>M: ② sequences-material.js
+    M-->>G: 素材はある / view はまだ無い / 源はこれ を JSON で報告<br/>常に exit 0
+    G->>R: ③ run.mjs
+    R-->>G: 各パッケージの SEQUENCES.md と SEQUENCES.json を書く<br/>ここが配布
+    G->>I: ④ init.js
+    Note over I: その2ファイルを素材に加える
+    G->>L: ⑤ list-files.js
+    L-->>G: 素材一覧を返す → grill が SEQUENCES.md を読む
+    Note over M,L: ②が③より前に、③が⑤より前に、という順序が構造上の要点
+```
+
+**②が③より前に、③が⑤より前に**あることが構造上の要点です。記録済みの view が消えても、厳格な読み手（`init.js` / `list-files.js` は記録済みパスが無ければ exit 1）が走る前に再生成されるので、セッションが永久に固まる状態が作れません。
+
+**③が肝**です。`run.mjs` は台帳と `WORKSPACIFY-TREE-MANIFEST.json` を接合し、そのパッケージが所有する単位だけを抜き出します。単位の同一性は最後まで**単位ID**です。
+
+| 単位ID | 意味 |
+|---|---|
+| `op-<operationId>` | このパッケージが実装するオペレーション |
+| `seq-<sequenceId>` | このパッケージが単独で持つシーケンス |
+| `xdir-<sequenceId>` | **他パッケージとまたがる**シーケンス。所有者すべての view に同じIDで現れる |
+| `ctr-<boundaryId>` | レジストリ境界の契約。境界を所有するパッケージの view に現れ、越える側のチケットにも同じ契約が投影される |
+
+**RFC.md に届くまで**
+
+```mermaid
+flowchart LR
+    S1["STEP 1<br/>単位IDごとに<br/>DesignTree ノードを1つ播く"]
+    S4["STEP 4<br/>generate-checklist.js が<br/>1ノード＝1行を出力<br/>生成器の変更は不要"]
+    S5["STEP 5<br/>確定した木から RFC.md を書く<br/>単位が RFC に名前を持つ"]
+    UNIT["RFC のその節に<br/>&lt;!-- unit: op-IssueCertificate --&gt;<br/>が付く"]
+    S1 --> S4 --> S5 --> UNIT
+```
+
+素材の集合が義務の集合を決め、義務の集合がノードを決め、ノードが RFC の節を決めます。**ゲート側に「台帳があったら要求する」という分岐は1行もありません** — 義務レジストリが返したものをループするだけなので、素材が無ければ空ループになります。これが追加補強であることの実体です。
+
+**4ループへの波及**
+
+| ループ | 単位IDの運ばれ方 | 検査 |
+|---|---|---|
+| **上流** | RFC の `<!-- unit: -->` → `/graphify-rfc` がノードの `unitIds` に → `/boundify-graph` がヘッダの `units:` 行に → `/split-to-tickets` がチケットの `nodeIds` と `distribution` に | `/smooth-sequences` が列挙・契約・配布の閉包を受理し、graphify が `SMOOTH-VERDICT.json` を固定する。配布台帳ゲートが台帳の形を検査する |
+| **実装** | チケットが単位を宣言し、実装ファイルの `Initial Design Artifact` ヘッダが単位を名指しする（supreme law が保護する器の中に）。ステップ契約と境界契約は `contracts` に、前提は `prerequisites` に入る | `show-ticket-context` が契約・分担・前提を Markdown で出し、`verify-make-distribution` が契約の被覆を、`check-ticket-prerequisites` が依存順を検査する。`checkUnitProvenance` が**発明**と**欠落**を別々に報告する |
+| **出荷** | `/crystalize-readme` はグラフ、package 証拠（RFC source・RFC-SEED・OBLIGATION・specs・examples）、既存 README と CRYSTALIZE-Status、ワークスペース README を読む。単位IDはグラフと package 境界から列挙する | 船積層が見る単位集合 ＝ 台帳の単位集合 |
+| **進化** | `/drill-rfc-down` Step 1 が同じ検出器を呼び、同じ view を読む | 第六の一貫性が台帳 ⇄ グラフ ⇄ チケットを突き合わせ、**失われた単位は high severity** |
+
+**保証**
+
+- **無ければ何も変わらない**: 検出器は常に exit 0、`obligationsFor` は空配列、第六の一貫性は空配列を返します。`verify-step.js` は high severity だけを見るので、既存パッケージの PASS / FAIL は数学的に不変です。`/make-ticket` の分布節・前提節・納品ゲートも、情報を持つチケットでのみ発火し、持たないチケット（Case B・分割前）は `skipped:*` で従来どおり進みます
+- **あれば漏れない**: 1つの単位は所有者の数だけ view に現れ、台帳・グラフ・チケットの3集合が一致しなければ high finding になります。境界契約は所有側と越える側の両方に投影され、片側だけの実装を許しません
+- **渡された契約はテストで保証される**: `/make-ticket` は分布情報を、そのチケットの `contracts` と被覆テスト（`@verifies`）として計画し、TDD の Red で証明します。生 JSON にしか無い契約は spec 欠陥として拒否されます
+- **壊れても直せる**: view が消えても、源の artifact が残っていれば再生成されます。
+
+```
+WORKSPACIFY-TREE-MANIFEST.json（/workspacify-tree の出力・stage one の単一の正典。カレントディレクトリに出力）
+├── artifact_kind: "workspacify-tree-manifest" / schema_version / status: "COMPLETE"
+├── input: { spec_path, source_hash }（仕様書の実在と再ハッシュ）
+├── workspace: { tree, packages[], ownership }
+│     packages[]: { id, name, path, layer, kind, responsibilities, seed_required, owns }
+├── structure / inventory / requirements / adapters / dependencies / conformance
+├── stage2_handoff: { eligible, entry_gate, contract_definition_order, contract_boundaries }
+├── gates[] / final_audit{...}（final_audit の各値は 0 でなければならない）
+└── integrity: { manifest_hash }（自己ハッシュ。stage two が受け取り時に照合する）
+
+WORKSPACIFY-ALLOCATE-MANIFEST.json（/workspacify-allocate の出力・stage two の最終権威。manifest と同じディレクトリに出力）
+├── artifact_kind: "workspacify-allocate-manifest" / status: "COMPLETE"
+├── run: { workspace_root: ".", planned_directory_count }
+├── input_tree_manifest: { path, hash, spec: { path, sha256 } }
+├── seed_index[]: { package, path, sha256 }（パッケージごとにちょうど1つ）
+├── contract_registry[] / source_coverage{} / implementation_order: { serial, levels }
+├── wig: { summary, counts, hash, violations[] }（Workspace Integration Graph）
+├── self_grill: { passes, converged, focuses, rounds[], residual_count }
+├── handoff_summary（人間 grill が読み始める引き継ぎ）
+└── gates[] / allocation{} / semantic_review{} / completion_decision / integrity{ manifest_hash }
+
+RFC-SEED.md（全パッケージディレクトリにちょうど1つ）
+├── 14見出し固定。完成 RFC ではなく /grill-me-for-rfc の種
+└── §1（Identity/Position）と §2（Coupling Contracts）は機械注入 — AI は書けない
+
+ARCHITECTURE-DELTA.json（/workspacify-tree のリバースモードがワークスペースルートに発行）
+└── 論理モデルと物理レイアウトの不一致の記録。不一致ゼロでも「比較した」ことを示す記録として必要
+
+DesignTree.json（/grill-me-for-rfc のノード機構が持つ設計判断の木。終端状態の第五層インベントリに数えられる）
+
+workspacify/（予約ルート・終端レイアウトの外。文書倉庫）
+├── reverse/   逆回転の作業文書（ORIGIN-LONG-SPEC.{json,md} ほか）
+├── tree/      DECISIONS.json（staging — 成功した publish が機械的に掃除する）
+└── allocate/  DECISIONS.json（同上）
+
+SYSTEM-DESIGN-sequences.json（/educe-sequences の成果物・ワークスペースルート）
+├── sequences[] / steps[] / operations[] / boundary_grounds[]
+├── steps[].contract: { pre, post, invariants, consumes, produces, errors, crosses }
+└── operations[].registry_contribution / allowed_status_transitions / boundary_effects
+
+educe-sequences/（仕様書の隣の run ディレクトリ）
+├── status.json / declaration.json / pins.json / worklist.txt
+├── readings-*.jsonl（span / adversarial / attack / reroute / adjudicate / inquest / judgment）
+├── demand.json / rail-exits.jsonl / adhoc/ / supplied/ / archive/
+└── EVIDENCE-MANIFEST.json（readings の書き込み証跡。closure mode の入力）
+
+SEQUENCES.md / SEQUENCES.json（各パッケージ）
+├── 台帳のパッケージ射影（view）。owned / cross-boundary / obligation の単位を持つ
+└── owner と consumer の役割、順序付きステップ、境界契約を含む
+
+OBLIGATION.json（各パッケージ・authored）
+└── パッケージが負う単位・ステップ・境界の宣言。view はここから再生成される
+
+smooth-sequences/（ワークスペース直下）
+├── SMOOTH-SEQUENCES.json / .md / status.json
+├── COMPLETION-CERTIFICATE.json / JUDGMENT-WORKLIST.json / CALIBRATION.json
+└── archive/<N>/（世代を削除しない）
+
+regeneration/（ワークスペース直下・smooth の修復トランザクション）
+├── candidates/（仕様・decisions の完全コピー）
+├── GENERATIONS.json / COMMIT-JOURNAL.json
+└── archive/<id>/（staging とコミット証跡）
+
+SMOOTH-VERDICT.json（ワークスペース直下・/graphify-rfc Step 0 が書く）
+├── smooth の合格・viewDigests・mapDigests・formulaDigests・設計スナップショット
+└── worklistDigest / formulaCompleteness（数式完全性）を固定する受理証明
+
+IMPLEMENTATION-ORDER.json（各パッケージ・/split-to-tickets が書く）
+└── チケットの実装前提と順序。Ticket.json の隣に置く
+
+WORKSPACIFY-IMPLEMENTATION-ORDER.json（ワークスペース直下・/split-to-tickets が書く）
+└── 全パッケージの union。buildOrder と implementationOrder を別々に持つ
+```
+
+**上の `SEQUENCES` / `smooth-sequences` / `regeneration` / `*ORDER.json` は運用成果物であり、前述の終端インベントリ（ルート11点・各パッケージ8点）には数えません。** 終端の点数は「4つのループが回る形」の骨格を測るもので、受理・実装順のサイドカーはその外側の検査記録です。
+
+**予約ルートは文書倉庫であり、第五層はその中に入りません。** 解析のどの走査もこの名前のディレクトリへ降りないため、書き込んでも測った木は測ったままです。decisions 文書は**staging**であって記録ではなく、記録は公開された manifest です。
+
+### INFO-RFC-SEED / EXPLAIN-RFC-SEED（`/explain-seed` の成果物）
+
+```
+INFO-RFC-SEED.md（事実・英語・スクリプトが著者。stdout に同じバイトを出す）
+├── 2つの manifest・seed・仕様書・隣人の説明・workspacify-order の実装順から導出
+├── どの事実も出典識別子を名指しする。空の節は空だと書く
+└── 説明・評価・助言の文は書かない（AI はこの文書から作業する）
+
+EXPLAIN-RFC-SEED.md（説明・日本語・AI と人間の共著）
+├── 枠（スクリプトが書く）: 7節・点の台帳・[::MUST-FILL::]（AI が埋める）・<!-- 人間の判断 -->（人間が書く）
+├── 質問ブロック（run.mjs next が番号を付けて追記。番号は振り直さない）:
+│     番号 / 文脈 / 方向 A・B（必要なら C） / 推奨（1つだけ） / 理由 / 覆す事実 / スコープ行
+│     ＋ 束ねた点の id と記録の写し（AI 専用・枠マーク付きで人間には見せない）
+├── 確定項目（「先に決めておいたこと」）: 決定・根拠・覆す条件
+├── 追加点（人間が持ち込んだ視点を1つの点に整えたもの）: 出どころ・論点。予約 id `added-NNN`
+└── 完成は run.mjs answers が exit 0 を返したときだけ（全問に回答があり、未確定点がゼロ）
+```
+
+---
+
+## スクリプトリファレンス
+
+### 適合ループ（workspacify）
+
+| 段階 | 実行体が担うこと |
+|------|------------------|
+| 逆回転の入口（`/workspacify-reverse`） | R0〜R8 を直列に1回。引数を取らず、主題（カレントディレクトリ）と出力先（その下の予約ルート）を導出する。構造の測定・依存の測定・クレーム台帳・origin spec の描画・パターン判定・Red 再建計画・終端状態の観測を含む |
+| stage one（`/workspacify-tree`） | `parse` / `extract` / `gate` / `finalize` の4段と G0〜G5。仕様書の分割・候補のハーベスト・ワークスペース設計・owner 一意性・過分割の検査・依存 DAG と実装順序の証明・原子的公開 |
+| stage two（`/workspacify-allocate`） | G0〜G6。マニフェストの受け取り検証（自己ハッシュと仕様書の再ハッシュ）・ディレクトリ計画・seed の描画と読み戻し・self-grill と residual の到達・双方向契約・WIG・公開と reload と後片付け |
+| 実装順の表示・検査（`workspacify-order/run.mjs`） | ビルド順（stage one の DAG）と実装順（シーケンス・ステップ契約・境界契約から導出）を別概念として描画する。公開済みの `implementation_order` と食い違う場合、またはサイドカーが古い場合は描画を拒否する。引数は0個または `RFC-SEED.md` 1個。実行履歴に記録するのはコマンド実行時のみで、その場合は `--record` を付ける（手元の目視では付けないので記録されない） |
+| 要求台帳（`/educe-sequences`） | 仕様書を18フェーズ・31宣言チェックで走査し、全行をエントリへ割り当て、各ステップを引用行に接地させ、`SYSTEM-DESIGN-sequences.json` を書く。schema v3 は型付きステップ契約と `registry_contribution` を持つ。run 状態は `educe-sequences/` に隔離する |
+| 共有される規約 | 予約ルートの名前は1箇所で宣言され、逆回転の出力先と「どの走査もその名前へ降りない」規則の両方がそこから導出される。staging の decisions 文書は公開の成功時に削除され、パッケージの走査からは予約ルートが除外される |
+
+### 受理ゲート（`.claude/scripts/smooth-sequences/`）
+
+`smooth-sequences/run.mjs`（S1 / S3〜S7 の検査族をまとめて実行し、`SMOOTH-SEQUENCES.json` / `.md` / `status.json` を書く。exit 0 = pass、1 = findings、2 = misuse/refusal、3 = educe への handoff、4 = unproven）/ `check-formula-completeness.js`（closure mode の S8 を測り、`SPEC-COMPLETENESS-WORKLIST.json` を書く）/ `calibrate.mjs`（検査族ごとの seed 欠陥を実検出器で検出し `CALIBRATION.json` を書く）/ `migrate-v3.mjs`（v3 の証拠面を annotations から復元する）/ `re-evidence.mjs`（証拠の再生成）/ `spec-formula/`（数式の抽出・ledger・sidecar・ownership・handoff）/ `lib/`（検査族・証明書・判定）。仕様変更は `regeneration/run.mjs` のトランザクション（`open` / `status` / `continue` / `derive` / `verify` / `commit` / `abort` / `recover`）でのみ行います。
+
+### 配布・実装順（`.claude/scripts/sequences-slice/`、`shared-obligations/`、`workspacify-order/`）
+
+`sequences-slice/run.mjs`（台帳と tree manifest の接合からパッケージ view を書く）/ `verify-chain.mjs`（graphify / boundify / split の各段で単位・契約・view の鎖を検査する）/ `verify-implementation-order.mjs`（`--package`（省略時はカレントディレクトリ）は `IMPLEMENTATION-ORDER.json`、`--workspace` は `WORKSPACIFY-IMPLEMENTATION-ORDER.json` を書き、前提違反・循環で fail-closed）/ `lib/implementation-order.mjs`（前提・役割・トポロジカル順序の規則）。`shared-obligations/` は closure mode の judgment / attack / effort / evidence を扱い、`evidence-writer.mjs` が `EVIDENCE-MANIFEST.json` に書き込み証跡を残します。`workspacify-order/lib/` は level 導出・公開順との照合・端末描画を持ちます。
+
+### 上流ループ（`.claude/scripts/rfc-graph/`）
+
+| カテゴリ | スクリプト |
+|----------|-----------|
+| グラフ CRUD（唯一の書き込み経路） | `crud.js` |
+| graphify | `deduplicate-headings.js` / `resolve-by-heading.js` / `verify.js` / `validate-slug.js` / `query.js` / `test-query-all.js` / `query-fix-hints.js` / `analyze-source-structure.js` / `show-graph-summary-markdown.js` / `update-step-status.js` / `verify-smooth-verdict.mjs`（Step 0 の受理ゲート） / `attach-unit-ids.js`（分布の受入） / `attach-formula-ids.js`（数式IDの付与） |
+| boundify | `boundify-graph-to-dirs.js` / `validate-dirs-tree-schema.js` / `verify-graph-integrity.js` / `generate-all-dir-templates.js` / `generate-dir-template.js` / `verify-unit-file-coverage.js` / `verify-formula-file-coverage.js`（数式→ノード→ファイルの被覆） / `update-boundify-step-status.js` |
+| split | `phasify-graph-and-dirs-files-tree.js` / `show-phase-nodes.js` / `show-dirs-files-tree.js` / `show-all-nodes-title-summary.js` / `write-phase-name-summary.js` / `check-phase-names-summaries.js` / `consolidate-phase-tickets.js` / `project-step-contracts.js` / `update-split-step-status.js` |
+
+graphify の見出し抽出と Step 0 の重複解消は、コードフェンス（3連バッククォートまたは `~~~`）の内側を本文として扱い、見出しとして数えません。未閉鎖のフェンスは Step 0 が `UNCLOSED_FENCE` で停止し、ソースを書き換えません。
+
+上流ループのスクリプトは、カレントディレクトリの固定名（`RFC.md` / `RFC-GRAPH.json` / `RFC-Dirs-Tree.json` / `Tickets.json` / `RFC-{GRAPHIFY,BOUNDIFY,SPLIT}-Status.json`）を既定値とします。明示パスは非標準レイアウト用の上書きであり、コマンド定義からは固定パスを渡しません。
+
+### 実装ループ（`.claude/scripts/tickets/`）
+
+| カテゴリ | スクリプト |
+|----------|-----------|
+| チケット CRUD | `add-ticket.js` / `get-ticket.js` / `update-ticket.js` / `delete-ticket.js` / `bulk-add-tickets.js` / `bulk-update-tickets.js` / `bulk-delete-tickets.js` |
+| 表示・検索 | `list-phases-and-tickets.js` / `all-tickets.js` / `search-tickets.js` / `get-ticket-as-markdown.js` |
+| フェーズ管理 | `add-phase.js` / `add-px-phase.js` / `write-tickets-json-template.js` / `rename-phases.js` |
+| make/plan/start/review | `show-ticket-context.js` / `ensure-ticket.js` / `insert-field-template.js` / `list-remaining-stubs.js` / `check-ticket-status.js` / `check-ticket-prerequisites.js`（4コマンド共通の前提ゲート） / `verify-make-contracts.js` / `verify-make-distribution.js`（Step 9.5） / `verify-plan-contracts.js` / `verify-red-coverage.js` / `verify-final-contracts.js` / `validate-ticket-targets.js` / `enumerate-ticket-targets.js` / `annotate-ticket-context-by-git-diff.js` / `resolve-ambiguous-markers.js` |
+| split・配布 | `add-tickets-for-phase.js`（単位と distribution の付与） / `split-evolve.js`（既存 Tickets の進化。差分・同一性・配置・retire・CAS 昇格） / `update-phase.js`（フェーズ所有権の追加・挿入。再採番なし） / `merge-contracts-to-tickets.js`（ステップ・境界契約の投影） / `merge-formulas-to-tickets.js`（数式義務の Tickets 投影） / `verify-ticket-closure.js` / `verify-all-ticket-coverage.js` / `show-phase-distribution.js` / `show-ticket-distribution.js` |
+| consolidate | `batch-update-stub.js` / `batch-create-resolving-tickets.js` / `consolidate-stubs-gate.sh` / `require-consolidated-manifest.js` / `preflight-stub-cleanup.js` / `validate-no-external-excuses.js` / `clean-consolidation-artifacts.js` |
+| find | `get-next-check-target-ticket.js` / `add-omission-ticket.js` / `create-tmp-omissions.js` / `validate-graph-arg.js` / `phasify-omissions.js` |
+| 犯罪・スタブ | `scan-crimes.sh` / `malfeasance-create.js` / `malfeasance-update.js` / `insert-stub.js` / `scan-incomplete-implementations.js` / `ensure-malfeasance.js` |
+| 品質・検証 | `review/run-quality-checks.js` / `review/find-all-stubs.js` / `review/generate-report.js` / `lib/validate-tickets.js` / `lib/validate-omissions.js` |
+
+### 出荷ループ（`.claude/scripts/crystalize-readme/`）
+
+`derive-graph-path.js`（引数なしのグラフ導出）/ `derive-output-paths.js`（Preflight・モード判定）/ `discover-boundary.js`（workspace/package/unit/interface 発見・--field 出力）/ `collect-evidence.js`（証拠とダイジェスト・packageDigest）/ `parse-toml-subset.js`（workspace-map 読み取り・未対応構文は fail closed）/ `parse-rust-source-surface.js`（実装面の advisory 抽出）/ `parse-language-surface.js`（TS/Python/Go の advisory 抽出）/ `derive-toc.js`（非対話の目次候補・--source-file/--graph/--status）/ `validate-toc-structure.js`（目次構造と必須家族の検証）/ `plan-refine.js`（証拠ベースの preserve/reanalyze 判定と body 引き継ぎ）/ `residue-registry.js`（安定 ID・重複排除・ライフサイクル・README 突合・過剰検出 advisory）/ `workspace-readme.js`（管理ブロックの原子的更新・O_EXCL ロック・英語限定・決定論的集約）/ `update-step-status.js`（Step 進行管理・set-toc / set-section-states / record-residue / reconcile-residues / set-workspace）/ `emit-readme-skeleton.js`（骨子の機械出力・--plan carry-forward・人間 README 退避・--package-root）/ `loop-drive-readme.js`（セクション検査ループの駆動・resolve-section / mark-residue / resolve-examples / mark-examples-residue / --require-structured-residue / --check-residues）/ `validate-readme-language.js`（生成 README の英語限定検査・全非 ASCII 文字）/ `validate-marker-grammar.js`（マーカー文法の単一情報源）
+
+`validate-toc-proposal.js` / `backfill-confirmed-content.js` / `list-sections.js` は**互換専用（legacy）**です。旧版の対話的な見出し提案と確認済み状態の読み出しのために残しており、新しい非対話経路は `derive-toc.js` / `validate-toc-structure.js` / `update-step-status.js set-toc` を使います。削除しないでください。
+
+### question-gate（`.claude/scripts/question-gate/`）
+
+`/explain-seed`・`/grill-me-for-rfc`・`/drill-rfc-down` が共有する質問ゲートの核です。`settle.mjs`（決定・根拠・覆す条件の3行を判定し、4つの禁じられた推論を名前で拒否する）/ `prior-decisions.mjs`（先行記録の走査 — `RFC.md` と `RFC-<SLUG>.md` の両綴りを読む）/ `bundle.mjs`（1ラウンド最大3軸への束ね。1軸あたり最低2点、ただし開いている点が2点未満なら1点）/ `block.mjs`（7行の質問ブロックの描画と読み戻し）/ `rounds.mjs`（最大5ラウンド）/ `ledger.mjs`（点を `open` / `bound` / `settled` の3つに分割）/ `answers.mjs`（文字を持たない回答を点へ還元する）
+
+### explain-seed（`.claude/scripts/explain-seed/`）
+
+`run.mjs`（`info` / `next` / `check` / `answers` の4サブコマンド）と `lib/`（`digest.mjs` / `errors.mjs` / `frame.mjs` / `items.mjs` / `ledger.mjs` / `markers.mjs` / `neighbour-decisions.mjs` / `order.mjs` / `projection.mjs` / `render.mjs` / `seed-document.mjs` / `verify.mjs` / `workspace.mjs`）。`items.mjs`・`ledger.mjs` は質問ゲートと同じ語彙（点・束・確定）を扱います
+
+### educe-sequences（`.claude/scripts/educe-sequences/`）
+
+`rail/phase.mjs`（`begin` / `status` / `brief` / `run` / `through` / `report` / `scaffold` / `promote` の8サブコマンド。18フェーズの入口・ゲート・halt を駆動する）/ `rail/run.mjs`（Step 17 の製品経路。仕様書1つから成果物1枚を書く）/ `rail/render.mjs`（シーケンス図の描画）/ `rail/gates.mjs` / `rail/phases.mjs` / `rail/engine.mjs` / `rail/harness.mjs` / `rail/text.mjs`（brief が運ぶ木）。生成物は仕様書の隣の `educe-sequences/` に隔離され、scaffold した ad-hoc check は次回以降 `adhoc/` から読み込まれます。
+
+### grill-me-for-rfc（`.claude/scripts/grill-me-for-rfc/`）
+
+`init.js` / `init-for-drill-rfc-down.js` / `settle-run.js`（先行記録の走査と確定の駆動。drill の同名ファイルとバイト同一）/ `update-tree.js` / `tree-query.js` / `update-status.js` / `session-status.js` / `check-all-schema.js` / `generate-checklist.js` / `list-files.js` / `validate-question-format.js` / `extract-io-boundary.js` / `insert-io-boundary-template.js` / `check-io-stubs.js` / `normative-decision.js` / `reverse-questions.js`
+
+### drill-rfc-down（`.claude/scripts/drill-rfc-down/`）
+
+`/drill-rfc-down` は grill と同一の DesignTree / Status / CheckList 機構を利用しつつ、セッションを `<rfcDir>/drills/`（`$SESSION_DIR`）に隔離して実行します。`preflight.cjs`（引数・RFC/GRAPH/Dirs-Tree の実在検証、README.md の在否判定、`[VARIABLES]` 出力）/ `resolve-material.js`（README と SEQUENCES ビューの自動解決。README は任意）/ `drill-report.js`（`DRILL-REPORT.json` / `.md` の生成。`COMPLETE` の唯一の宣言元）/ `session-init.js`（セッション生成・継続）/ `settle-run.js`（先行記録の走査と確定の駆動。grill の同名ファイルとバイト同一）/ `session-status.js` / `update-status.js` / `rfc-evolution.js`（capture / verify / clean）/ `update-tree.js` / `validate-question-format.js` / `tree-query.js` / `generate-checklist.js` / `check-all-schema.js` / `graphify-delta-analyzer.js` / `graphify-step.js` / `boundify-delta-analyzer.js` / `boundify-step.js` / `dirs-tree-crud.js` / `generate-dir-templates-delta.js`（新規ファイルのヘッダ付き機械生成）/ `refresh-file-headers.js`（既存ヘッダ更新・本体不変）/ `split-delta-analyzer.js` / `split-step.js` / `detect-orphan-contracts.js`（孤立エッジ契約の検出）/ `verify-consistencies.js` / `verify-step.js` / `advisory-report.js`
+
+---
+
+## 第一級規則 — `[::STUB::]` マーカー絶対義務
+
+不完全な実装（スタブ・モック・仮実装・プレースホルダー等）にはすべて `[::STUB::]` マーカーを付与しなければなりません。Malfeasance.json に記録し、解決するまで次ステップに進めません。
+
+- マーカー挿入は **`insert-stub.js` 経由のみ**（ソース直接編集は禁止）。`--resolve-by-ticket` は既存チケットのみ許可され、`MUST RESOLVE` は引数レベルで拒否されます
+- 対象パターン: `todo!()` / `unimplemented!()` / `panic!()` / 空の関数本体 / `return Ok(())` / コメントアウトコード / `TODO` / `FIXME` / `HACK` / `XXX` / Mock / `#[allow(...)]`
+- 各フェーズで Malfeasance.json を確認し、未解決犯罪があれば優先解決します
+
+---
+
+## インストール
+
+conver の `.claude` ディレクトリ（スラッシュコマンド群・チケット管理スクリプト群）を別プロジェクトに導入するには、同梱の `install.js` を使用します。
+
+### 依存関係
+
+```bash
+npm install
+```
+
+ランタイム依存は `@agentclientprotocol/sdk ^2.5.0`、`@agentclientprotocol/claude-agent-acp ^0.102.0`、`node-cron ^4.5.0` です。
+
+### ビルド
+
+```bash
+npm run build
+```
+
+`npm run build` は現在の `VERSION.json` を埋め込んで `dist/conver.js` を生成します（バージョンは進めません）。`make build-conver` は `VERSION.json` を1つ進め、その版を `conver.js` に埋め込み、`.claude/scripts/conver/` と `~/shyme/conver/VERSION.json` に配置します。`make push-all` は先頭で `build-conver` を実行します。
+
+`make push`（`~/shyme/conver`）は `VERSION.json` を書き換えません。`build-conver` が準備した「最新コミット + 1」の版と `node .claude/scripts/conver/conver.js --version` が一致する場合だけコミット・push します。2段以上先の版を検出した場合はインクリメントせず中止します。
+
+| コマンド | 説明 |
+|---------|------|
+| `npm run build` | 現在の `VERSION.json` を埋め込んで esbuild バンドル |
+| `npm run typecheck` | TypeScript の型チェックのみ（`tsc --noEmit`） |
+| `make build-conver` | `VERSION.json` を1つ進めてバンドルし、`VERSION.json` をデプロイ先へコピー |
+| `make push-all` | `build-conver` → 全プロジェクトへ配置 → 各リポジトリを push |
+| `make typecheck` | `npm run typecheck` と同じ |
+| `make test` | リポジトリのテスト（重い計測スイート `tests/workspacify-reverse/integration` は `--exclude` で外す。外した分はレポートに Deferred として明示） |
+| `make test-all` | 除外なしの全テスト（夜間・リリース前） |
+| `make test-conver` | conver.js 本体のユニットテスト（tsc コンパイル後 `node --test`） |
+| `make test-rfc-graph` | rfc-graph 全スクリプトのテスト |
+| `make test-educe-sequences` | 要求台帳（`/educe-sequences`）のテスト |
+| `make test-workspacify` | 適合ループ stage one / stage two（workspacify-tree / workspacify-allocate）のテスト |
+| `make test-workspacify-reverse` | 逆回転の解析パイプライン本体のテスト（重い統合スイートを含む） |
+| `make test-tickets-reverse` | 逆対応チケット（`/split-to-tickets` の S1〜S6）のテスト |
+| `make test-grill-reverse` | 逆対応 grill のテスト |
+| `make test-crystalize-readme` | 出荷ループ（`/crystalize-readme`）のテスト |
+| `make test-drill-rfc-down` | 進化ループ（`/drill-rfc-down`）のテスト |
+| `make test-stub-resolution` | スタブ解決まわりのテスト |
+| `make run-conver` | `ARGS` を指定して conver.js を実行 |
+| `make deploy TARGET=path` | esbuild バンドルをビルドし配置 |
+| `make list-tickets` | チケット一覧をチェックリスト形式で表示 |
+| `make list-active-tickets` | 未完了（`[x]` 以外）チケット一覧を表示 |
+| `make stubs` | `[::STUB::]` マーカーを含む全ファイルを検索 |
+| `make crimes` | 全 Malfeasance.json の犯罪レコードを集約表示 |
+
+`.claude/scripts/conver/` に `package.json`（ESM 宣言、`engines.node`、`conver.runtimeDependencies`）が配置されており、ESM として正しく実行されます。
+
+```bash
+# カレントディレクトリに関わらず正しく動作します
+install.js -t /path/to/target/.claude
+```
+
+`install.js` は `rsync --archive --delete` でソースの `.claude` をターゲットへ完全にミラーします。プロンプトは表示されず、`-y` は互換性のために受け付けるだけです：
+
+```bash
+install.js -t /path/to/target/.claude
+```
+
+ソースに無いターゲット側のファイルは削除されます。ただし次の3つは同期対象から除外され、ターゲット側の内容がそのまま残ります。
+
+| 除外対象 | 理由 |
+|---------|------|
+| `settings.local.json` | プロジェクト固有の許可リストを蓄積するファイル |
+| `node_modules` | 依存解決が導入したものを毎回消さないため |
+| `.DS_Store` | Finder のメタデータ |
+
+`install.js` はスクリプト自身の位置（`__dirname`）から相対的に `.claude` ディレクトリを特定するため、どのカレントディレクトリから実行しても正しく動作します。
+
+ミラー完了後、インストール先の `.claude/CLAUDE.md` は **`.claude` の親ディレクトリ**（プロジェクトルート）へ `CLAUDE.md` としてコピーされます。Claude Code がプロジェクト指示をルートから読む一方、指示の権威はインストールされた `.claude` 側に一本化されるため、再インストールで両方が更新され、ルート側の手編集が配布ツリーから乖離しません。
+
+### 実行時の依存関係チェック
+
+インストール後に `conver.js` を実行すると、起動時に次の2つを検査します。
+
+- `.claude/scripts/conver/package.json` の `conver.runtimeDependencies`（ACP エージェント、任意の画像レンダラ）
+- `.claude/package.json` の `dependencies` / `optionalDependencies`（チケットスクリプト用）
+
+不足がある場合だけ、その依存を解決するコマンドをまとめて stderr に出力します。インストール済みのパッケージや、不足の無いディレクトリの `npm install` は含みません。
+
+- 必須依存（Node.js、ACP エージェント、チケットスクリプトの npm パッケージ）が不足 → コマンドリストを出して `exit 1`
+- 任意依存（`terminal-image`）だけが不足 → コマンドリストを出して処理を継続
+- すべて解決済み → 何も出力しない
+
+`--help` / `--version` では検査しません。`install.js --no-install-deps` を使った場合や、既存の `node_modules` があるために依存解決がスキップされた場合でも、この検査が不足分だけを案内します。
+
+---
+
+## はじめかた
+
+### 入口の選択（適合ループ）
+
+作業を始める前に、プロジェクトがどのパターンで入るかを決めます（基準は**ディスク上に既に存在する conver の足場だけ**です）。
+
+- **既存実装がある（パターン1・2・3）**: `/workspacify-reverse` → `/workspacify-tree` → `/workspacify-allocate` の順に実行し、`ORIGIN-LONG-SPEC` から manifest を作り、全パッケージディレクトリへ `RFC-SEED.md` を置きます
+- **空＋仕様書（パターン4）**: `/workspacify-tree` → `/workspacify-allocate` の2つだけです（逆回転は不要）
+
+分割が確定したら、**ワークスペースルート**で `node "$(git rev-parse --show-toplevel)/.claude/scripts/workspacify-order/run.mjs"` を実行し、表示された実装順が安全であることを確認します。仕様書がある場合は、続けて `/educe-sequences` で全シーケンス・全オペレーションの台帳を作ります。
+
+以後の手順2は**パッケージディレクトリごと**に、手順3は**ワークスペースルート**で、手順4〜7は**パッケージディレクトリごと**に実行します（ルートも path `.` の1パッケージです）。
+
+### スラッシュコマンド経由（Claude Code 内）
+
+1. `/educe-sequences` で要求台帳（`SYSTEM-DESIGN-sequences.json`）を作る（仕様書がある場合）
+2. `/explain-seed` に `RFC-SEED.md` を説明させ（事実と説明の2文書）、`/grill-me-for-rfc` で設計判断を確定し、RFC 設計書を書く。台帳を material として渡すと、パッケージぶんの `SEQUENCES.md` / `SEQUENCES.json` が射影される
+3. `/smooth-sequences` をワークスペースルートで実行し、列挙・契約・配布の閉包を受理する。`pass` しなければ graphify へ進めない
+4. `/graphify-rfc` で RFC を論理グラフ化（`RFC-GRAPH.json`）。Step 0 が `SMOOTH-VERDICT.json` を固定する
+5. `/boundify-graph` で実装ディレクトリツリーを生成（`RFC-Dirs-Tree.json`）
+6. `/split-to-tickets` でフェーズ・チケットに分解（`Tickets.json`）。単位・契約・前提・実装順がチケットへ機械投影される
+7. `conver.js` が実装ループを自動実行（make → plan → start → review → resolve）。各コマンドの冒頭で前提ゲートが走る
+8. `/consolidate-stubs` が `[::STUB::]` マーカーをチケット単位へ束ね直す（`/find-omissions` の必須前提）
+9. `/find-omissions` がギャップを計測し、実装起因の omission を `Tickets.json` にマージ → 収束するまで再実装
+10. find の積み増しが数ラウンドで収束したら、`/crystalize-readme` を**引数なし**で実行し、「ユーザーにとって素敵か」の視点からパッケージ README とワークスペース README をセクション単位で検証（出荷ループ）。生成 README は英語のみ。書けないセクションは structured residue（安定 ID・証拠・実装補強設計）として README 内に残し、`--check` と `--check-residues` で収束を確認する
+11. RESIDUE が出たら `/drill-rfc-down` がチケット化して積み増し → 手順7へ戻って再実装。コマンドの収束（全セクション complete|residue・marker 文法正常・residue レジストリ整合）と外側の出荷判定は別であり、RESIDUE がゼロになり、「ユーザーにとって素敵な使い方」が README.md に書き上がり、実装とテストがそれを満たすことを外側の出荷判定が確認したら出荷
+12. 市場変化や新要件があれば `/drill-rfc-down` で正典を進化させ（進化ループ）、積み増しチケットを手順7から再実装
+13. 実装が進んだら**適合ループへ戻ります**（`/workspacify-reverse` からの再適合）。2周目以降は必ず**パターン2**として再入し、パターン判定は入場審査ではなく毎回の再測定です（「[適合ループ — 4つの入口と第五層](#適合ループ--4つの入口と第五層)」を参照）
+
+### CLI 直接実行
+
+```bash
+# Tickets.json を用意した上で
+node dist/conver.js -k <api_key> -s <slack_url>
+
+# 最大5チケット処理、resolve 間隔2、push 有効
+node dist/conver.js -k <api_key> -s <slack_url> -c 5 -r 2 -p 1
+```
+
+## conver (Night-Imp-Loop の PoC 理論実装版) 使用における心得
+
+1. いきなりループエンジニアリングにおける Looper として conver.js を使おうとしないこと
+2. 自動化率を追う前に必ず自分の身体に覚え込ませる訓練をすること
+3. ループエンジニアリングは自動開発ロボットではなく、エンジニアにとっての「モビルスーツ」である
+4. 中身の肉体が鍛えられていなければモビルスーツは意味をなさない
+5. conver.js を一度封印し、全てのスラッシュコマンドを「手動実行」するところから訓練せよ
+6. 全てのスラッシュコマンドを「絵筆のように使いこなせるように」なったら conver.js へ移行せよ
+
+## 手動実行訓練のイメージ
+
+> 適合ループを回す場合、手順1の「モジュール単位に切る」は `/workspacify-tree` → `/workspacify-allocate` が機械的に行い、訓練は**各ディレクトリに `RFC-SEED.md` が置かれた状態**から始まります（手順2以降は、指定された実行ディレクトリで実行します）。
+
+1. ターゲットの開発をモジュール単位に設計として切る（必ず安全な I/O 境界で切り、ディレクトリが独立する単位）
+2. ワークスペースルートで `node "$(git rev-parse --show-toplevel)/.claude/scripts/workspacify-order/run.mjs"` を実行し、実装順を確認する。仕様書があるなら `/educe-sequences` で全シーケンス・全オペレーションを台帳化する
+3. /explain-seed で RFC-SEED.md を説明させ（事実と説明の2文書）、続いて /grill-me-for-rfc でモジュール単位の RFC を生成 -> RFC を必ず全部読め。
+4. 全パッケージの grill が終わったら、ワークスペースルートで /smooth-sequences を実行し、`pass` になるまで修復する
+5. /graphify-rfc -> /boundify-graph -> /split-to-tickets（上流パイプライン）を手動で実行し、
+6. 目で追いきれなくても諦めず、AIが仕事する様子を全て読み続けよ（頭で理解しようとするな。カラダで感じよ。）
+7. `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/list-phases-and-tickets.js"` でチケット一覧を目視せよ。
+8. 一つ一つのチケットに対して、/make-ticket -> /plan-ticket -> /start-ticket -> /review-ticket（実装パイプライン）を手動実行。各コマンドの冒頭で前提ゲートが走ることを確認せよ
+9. 目で追いきれなくても諦めず、AIが仕事する様子を全て読み続けよ（頭で理解しようとするな。カラダで感じよ。）
+10. 3チケットくらいの単位で /resolve-ticket を手動実行
+11. 目で追いきれなくても諦めず、AIが仕事する様子を全て読み続けよ（頭で理解しようとするな。カラダで感じよ。）
+12. 全てのチケットの実装パイプラインが完了したら、/consolidate-stubs -> /find-omissions を連続手動実行
+13. 目で追いきれなくても諦めず、AIが仕事する様子を全て読み続けよ（頭で理解しようとするな。カラダで感じよ。）
+
+->>> これで１周のラウンドが完了。  
+->>> /find-omissions によって Tickets.json にチケットが追加されている場合は、  
+->>> `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/list-phases-and-tickets.js"` で確認できる。  
+->>> 未済チケットがあるならば、「２周目が必要かもしれない」という「示唆」。  
+->>> あくまで「示唆」である。絶対に「AIに判断させよう」とするな！  
+->>> 「２周目が必要かどうか」は、人間である自分が完全に判断せよ。  
+->>> 判断に必要な情報は「その時点でAIが全て持っている状態になるよう実装してある」  
+->>> 気になることは「AIに根掘り葉掘り聞いて」最終的な判断は自分でせよ。  
+->>> 絶対に「手綱」だけは離すな。  
+
+※ 次の周のラウンドが必要と判断したら、上記 8 以降を繰り返す。
+
+## Progress GIF
+
+`node .claude/scripts/conver/draw-progress-gif.js -t <workspace>` writes a self-contained
+HTML viewer under `<workspace>/progress-gif/YYYYMMDDhhmmss.html` and opens it. The browser
+Canvas renders the board and downloads `YYYYMMDDhhmmss.gif`.
+
+The timeline is a replay of `.conver-history.jsonl` plus the provenance-labelled
+`.conver-history.backfill.jsonl`; artifact mtimes never order an event. Rebuild a workspace's
+pre-history once with `node .claude/scripts/conver/backfill-history.js --root=<workspace>
+--dry-run`, then `--apply`; validate with `node .claude/scripts/conver/validate-timeline.js
+--root=<workspace>`. The full invariant is in `docs/progress-gif/TIMELINE-CONTRACT.md`.
+
+The visual baseline is `docs/progress-gif/samples/sample-progress.html`: a dark board with a
+package grid on the left, a vertical 17-stage ladder on the right, and one circular cell per
+package. The cell interior is a phyllotaxis dot field; dots light up with stage progress and
+an additive glow rises with density. The sample grammar was established first; the board
+was later widened with the speed/seek controls and the overall progress bar. The ladder labels
+are uppercase and set larger so they stay readable when the GIF is scaled down.
+
+- The only execution gate is that `WORKSPACIFY-TREE-MANIFEST.json` and
+  `WORKSPACIFY-ALLOCATE-MANIFEST.json` exist and are readable JSON. Missing later artifacts
+  are progress zero, not an error.
+- Ticket growth is reconstructed from `Tickets-<ts>`, `OMISSIONS-<ts>`, consolidation
+  manifests and drill rounds. The increase is drawn at its recovered stage and time.
+- Circle area is the package's contract-obligation count; the diameter follows the square
+  root. The outer ring closes with reviewed obligations over total obligations.
+- The header prints `PROGRESS: <basename>` (plus ` v<version>` when the git toplevel of the
+  working directory has a `VERSION.json` whose `version` is a non-empty string) and one
+  full-width bar from x=12 to width-12.
+  The bar and the percentage are the stage-weighted ladder completion (`overallProgress`),
+  not the reviewed-obligation ratio, so a project that has not reached review still moves.
+  The track keeps 16 px of clearance above and below it.
+- The default board is 796 px wide with eight columns; cells are 72 px and shrink to the
+  64 px floor as rows increase. Raising the column count widens the board and lowering it
+  keeps the 724 px minimum with extra space before the ladder. Additional packages grow
+  the canvas by rows, never by width, and the ladder stays at the top. The HTML column
+  slider selects 4-10 columns (default 8).
+- Package names wrap to two lines under each cell. A common prefix shared by every package
+  name is removed at a `-`, `_`, `.` or `/` boundary; the tooltip keeps the full name and
+  path.
+- The HTML controls are numeric inputs in the order Frames (20-600, default 200), Speed
+  (20-400 ms per frame, default 150) and Columns (4-10, default 8), followed by the seek
+  slider. Values commit on change (Enter or blur) and are clamped. A frame change rebuilds
+  the animation at the same relative position; a column change recomputes the layout,
+  resizes the canvas and redraws the current frame. The downloaded GIF uses the selected
+  frames, dimensions and speed; the speed sets both playback and the GIF delay field
+  (clamped to 2-100 centiseconds).
+- There is no server. The browser downloads the GIF; Node does not write it.
+- 300MB is a ceiling for a mature workspace, not a target. `--frames` (clamped to 20-600),
+  `--fps`, `--scale` and `--max-bytes` bound the output; the viewer starts at 150 ms per
+  frame and `--fps` overrides that initial value.
+- The animation shows the ladder in stage order: educe, explain, grill, smooth, graphify.
+  Explain completes for every package before grill starts, and the header advances to
+  SMOOTH while that workspace-level step runs. Smooth evidence is placed after explain and
+  grill even when its artifact is measured later, and no synthetic zero-time duplicate is
+  added per package.
+- Noto Sans JP is bundled under the SIL Open Font License 1.1.
+
+## Appendix
+- skills や plugin は、完全に内容を理解しているもの以外は絶対に入れるな
+- context-mode だけは予め入れておけ

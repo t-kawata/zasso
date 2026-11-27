@@ -30,6 +30,7 @@ const __dirname = path.dirname(__filename);
 
 const SOURCE_DIR_NAME = '.claude';
 const PROJECT_INSTRUCTIONS_FILE_NAME = 'CLAUDE.md';
+const README_FILE_NAME = 'README.md';
 /**
  * Paths the mirror never reads or removes.
  *
@@ -141,6 +142,25 @@ function publishProjectInstructions(targetDir) {
 }
 
 /**
+ * Copy the project README into the installed `.claude`.
+ *
+ * The README documents what the installed tree is, so it belongs inside the tree
+ * rather than only at conver's own root. It is copied after the mirror because the
+ * source `.claude` does not hold it: the mirror would otherwise delete it on the
+ * next run. The project README is the only authority, so a hand-edited installed
+ * copy is overwritten rather than preserved.
+ *
+ * @param {string} targetDir
+ */
+function installReadme(targetDir) {
+  const source = path.join(__dirname, README_FILE_NAME);
+  if (!fs.existsSync(source)) return;
+  const installed = path.join(targetDir, README_FILE_NAME);
+  fs.copyFileSync(source, installed);
+  print(`copied ${README_FILE_NAME} into ${targetDir}`);
+}
+
+/**
  * Resolve the declared dependencies of the installed `.claude`, without
  * destroying anything that was already there.
  *
@@ -247,6 +267,7 @@ async function main() {
 
   try {
     mirrorTree(sourceClaudeDir, targetDir);
+    installReadme(targetDir);
     publishProjectInstructions(targetDir);
   } catch (error) {
     printError(`error: ${error.message}`);

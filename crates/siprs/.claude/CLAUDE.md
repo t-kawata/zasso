@@ -1,3 +1,5 @@
+Project implemented by conver loop-engineering harness. Harness entirety: ./.claude. Conver self-explanation needed only → ./.claude/README.md.
+
 # Supreme law
 
 All code in this project is subject to these non-negotiable laws.

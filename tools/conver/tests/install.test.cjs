@@ -19,6 +19,7 @@ const path = require('node:path');
 
 const INSTALL_SCRIPT = path.resolve(__dirname, '../install.js');
 const SOURCE_TREE = path.resolve(__dirname, '../.claude');
+const SOURCE_README = path.resolve(__dirname, '../README.md');
 const SAMPLE_FILE = path.join('scripts', 'crystalize-readme', 'loop-drive-readme.js');
 const INSTALL_STATE_FILE_NAME = '.conver-install-state.json';
 
@@ -203,6 +204,41 @@ describe('install.js publishes the installed CLAUDE.md to the project root', () 
 
       assert.equal(installInto(target).status, 0);
       assert.deepEqual(fs.readFileSync(projectInstructions), published, 'a second run must not rewrite the project root');
+    });
+  });
+});
+
+describe('install.js copies README.md into the installed .claude tree', () => {
+  it('writes the project README.md into the target .claude directory', () => {
+    withTemporaryRoot('install-readme-', (root) => {
+      const target = path.join(root, '.claude');
+
+      const result = installInto(target);
+
+      assert.equal(result.status, 0, `stderr: ${result.stderr}`);
+      assert.deepEqual(
+        fs.readFileSync(path.join(target, 'README.md')),
+        fs.readFileSync(SOURCE_README),
+        'the installed .claude must carry the README the project shipped it with',
+      );
+    });
+  });
+
+  it('restores an edited README.md and stays byte-identical on a second run', () => {
+    withTemporaryRoot('install-readme-authority-', (root) => {
+      const target = path.join(root, '.claude');
+      const installedReadme = path.join(target, 'README.md');
+      assert.equal(installInto(target).status, 0);
+      const shipped = fs.readFileSync(installedReadme);
+
+      fs.writeFileSync(installedReadme, '# locally edited\n');
+      const second = installInto(target);
+
+      assert.equal(second.status, 0, `stderr: ${second.stderr}`);
+      assert.deepEqual(fs.readFileSync(installedReadme), shipped, 'the project README is the only authority');
+
+      assert.equal(installInto(target).status, 0);
+      assert.deepEqual(fs.readFileSync(installedReadme), shipped, 'a second run must not rewrite the README');
     });
   });
 });
