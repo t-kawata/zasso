@@ -31,6 +31,7 @@
 
 const fs = require('node:fs');
 const path = require('node:path');
+const { toHomeRelative } = require('../lib/path-utils');
 
 const EXIT_CLEAN = 0;
 const EXIT_UNFINISHED = 10;
@@ -75,7 +76,7 @@ function readBoundary(boundaryPath) {
   try {
     parsed = JSON.parse(fs.readFileSync(boundaryPath, 'utf8'));
   } catch (error) {
-    throw new Error(`Cannot parse ${boundaryPath}: ${error.message}`);
+    throw new Error(`Cannot parse ${toHomeRelative(boundaryPath)}: ${error.message}`);
   }
   return parsed;
 }
@@ -84,16 +85,16 @@ function readBoundary(boundaryPath) {
 // [::TICKET::] P27-1 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=P27-1 --for-spec --no-implementation-order`.
 function readTickets(ticketsPath) {
   if (!fs.existsSync(ticketsPath)) {
-    throw new Error(`Tickets.json not found: ${ticketsPath}`);
+    throw new Error(`Tickets.json not found: ${toHomeRelative(ticketsPath)}`);
   }
   let parsed;
   try {
     parsed = JSON.parse(fs.readFileSync(ticketsPath, 'utf8'));
   } catch (error) {
-    throw new Error(`Cannot parse ${ticketsPath}: ${error.message}`);
+    throw new Error(`Cannot parse ${toHomeRelative(ticketsPath)}: ${error.message}`);
   }
   if (!Array.isArray(parsed.phases)) {
-    throw new Error(`Tickets.json has no phases array: ${ticketsPath}`);
+    throw new Error(`Tickets.json has no phases array: ${toHomeRelative(ticketsPath)}`);
   }
   return parsed;
 }
@@ -171,7 +172,7 @@ function detectUnfinishedFind(options = {}) {
 
   return {
     unfinished: evidence.length > 0,
-    cwd: directory,
+    cwd: toHomeRelative(directory),
     evidence,
   };
 }

@@ -11,6 +11,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const { recordRunHistory } = require('../lib/run-history-recorder.cjs');
+const { toHomeRelative } = require('../lib/path-utils');
 
 const REPORT_JSON_BASENAME = 'amend-rfc-up-report.json';
 const REPORT_MARKDOWN_BASENAME = 'amend-rfc-up-report.md';
@@ -211,11 +212,13 @@ function writeReport({ packageDir, report }) {
   const jsonPath = path.join(directory, REPORT_JSON_BASENAME);
   const markdownPath = path.join(directory, REPORT_MARKDOWN_BASENAME);
   const temporarySuffix = `.tmp.${process.pid}`;
-  fs.writeFileSync(`${jsonPath}${temporarySuffix}`, JSON.stringify(report, null, 2) + '\n');
-  fs.renameSync(`${jsonPath}${temporarySuffix}`, jsonPath);
-  fs.writeFileSync(`${markdownPath}${temporarySuffix}`, renderReportMarkdown({ report }));
-  fs.renameSync(`${markdownPath}${temporarySuffix}`, markdownPath);
-  return { jsonPath, markdownPath };
+  const temporaryJsonPath = jsonPath + temporarySuffix;
+  const temporaryMarkdownPath = markdownPath + temporarySuffix;
+  fs.writeFileSync(temporaryJsonPath, JSON.stringify(report, null, 2) + '\n');
+  fs.renameSync(temporaryJsonPath, jsonPath);
+  fs.writeFileSync(temporaryMarkdownPath, renderReportMarkdown({ report }));
+  fs.renameSync(temporaryMarkdownPath, markdownPath);
+  return { jsonPath: toHomeRelative(jsonPath), markdownPath: toHomeRelative(markdownPath) };
 }
 
 // [::TICKET::] PX-418 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-418 --for-spec --no-implementation-order`.
