@@ -71,12 +71,12 @@ test('C004 postcondition: the plan renders the level blocks and the chain row', 
       `# ${basename(workspace.root)} build order — 3 dirs / 2 levels / 2 dependencies`,
       '',
       '<level 0>',
-      `  ${CRITICAL_MARKER} crates/protocol/package-1`,
+      `  ${CRITICAL_MARKER} crates/protocol/package-1 ◻️ WTR ◻️ WAL`,
       '',
       '<level 1>',
-      `  ${CRITICAL_MARKER} crates/protocol/package-2`,
+      `  ${CRITICAL_MARKER} crates/protocol/package-2 ◻️ WTR ◻️ WAL`,
       '',
-      '    crates/protocol/package-3',
+      '    crates/protocol/package-3 ◻️ WTR ◻️ WAL',
       '',
       'critical chain   package-1 → package-2',
       '',
@@ -258,19 +258,19 @@ function explainedFixture(t) {
 }
 
 /** The plan of that fixture, line by line, written out rather than rebuilt from the renderer. */
-// [::TICKET::] PX-228, PX-282, PX-323, PX-393 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-228|PX-282|PX-323|PX-393) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-228, PX-282, PX-323, PX-393, PX-459 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-228|PX-282|PX-323|PX-393|PX-459) --for-spec --no-implementation-order`.
 function explainedPlanLines(workspace) {
   return [
     '',
     `# ${basename(workspace.root)} build order — 3 dirs / 2 levels / 2 dependencies`,
     '',
     '<level 0>',
-    '  * crates/protocol/package-1 🔴 EXP',
+    '  * crates/protocol/package-1 ◻️ WTR ◻️ WAL 🔴 EXP',
     '',
     '<level 1>',
-    '  * crates/protocol/package-2',
+    '  * crates/protocol/package-2 ◻️ WTR ◻️ WAL',
     '',
-    '    crates/protocol/package-3 🔴 EXP',
+    '    crates/protocol/package-3 ◻️ WTR ◻️ WAL 🔴 EXP',
     '',
     'critical chain   package-1 → package-2',
     '',
@@ -296,16 +296,15 @@ test('C001 invariant: the label is appended and never padded, so no line carries
   const workspace = explainedFixture(t);
   const text = renderPlan(twoLevelModel(workspace));
 
-  // Asserted before the whitespace rule so the case is red while the label is absent: a
+  // Asserted before the whitespace rule so the case fails while the label is absent: a
   // whitespace check alone holds in a plan that carries no label at all, and would pass
   // whatever the renderer did with the mark.
-  assert.ok(text.includes('  * crates/protocol/package-1 🔴 EXP'));
+  assert.ok(text.includes('  * crates/protocol/package-1 ◻️ WTR ◻️ WAL 🔴 EXP'));
   for (const line of text.split('\n')) {
     assert.equal(line, line.trimEnd(), `trailing whitespace: ${JSON.stringify(line)}`);
   }
-  // The unexplained line ends at its path: nothing follows it, not even a space, which is
-  // what keeps the path column from widening when a workspace explains nothing.
-  assert.ok(text.includes('\n  * crates/protocol/package-2\n'));
+  // The unexplained line ends after its workspace marks: nothing follows, not even a space.
+  assert.ok(text.includes('\n  * crates/protocol/package-2 ◻️ WTR ◻️ WAL\n'));
 });
 
 test('C002 postcondition: explainedIds equals the set of packages whose directory holds the document', (t) => {
@@ -396,8 +395,8 @@ test('C001 boundary: a workspace that explains everything marks every line, and 
   const allText = renderPlan(twoLevelModel(all));
 
   assert.equal(allText.match(/🔴 EXP/g).length, 2);
-  assert.ok(allText.includes('  * crates/protocol/package-1 🔴 EXP'));
-  assert.ok(allText.includes('  * crates/protocol/package-2 🔴 EXP'));
+  assert.ok(allText.includes('  * crates/protocol/package-1 ◻️ WTR ◻️ WAL 🔴 EXP'));
+  assert.ok(allText.includes('  * crates/protocol/package-2 ◻️ WTR ◻️ WAL 🔴 EXP'));
   assert.doesNotMatch(renderPlan(twoLevelModel(fixture(t))), /🔴 EXP/);
 });
 
@@ -407,7 +406,7 @@ test('C001 invariant: the focused block is unchanged by the explained state', (t
   const focus = (workspace) => renderFocus({ model: twoLevelModel(workspace), packageId: 'pkg-0003' });
 
   // The plan of the very fixture whose block is compared carries the mark, so this case is
-  // red while the label is absent and green only once the mark exists and is confined to it.
+  // fails while the label is absent and passes only once the mark exists and is confined to it.
   assert.equal(renderPlan(twoLevelModel(explained)).match(/🔴 EXP/g).length, 2);
   // The mark belongs to the level listing. The focused block answers a different question,
   // and this pins that boundary so a later change cannot widen the printed surface by accident.
@@ -470,12 +469,12 @@ test('C002 postcondition: each mark follows its own document, so one line may ca
       `# ${basename(workspace.root)} build order — 3 dirs / 2 levels / 2 dependencies`,
       '',
       '<level 0>',
-      '  * crates/protocol/package-1 🔴 EXP 🟠 GRI:?',
+      '  * crates/protocol/package-1 ◻️ WTR ◻️ WAL 🔴 EXP 🟠 GRI:?',
       '',
       '<level 1>',
-      '  * crates/protocol/package-2        🟠 GRI:?',
+      '  * crates/protocol/package-2 ◻️ WTR ◻️ WAL        🟠 GRI:?',
       '',
-      '    crates/protocol/package-3 🔴 EXP',
+      '    crates/protocol/package-3 ◻️ WTR ◻️ WAL 🔴 EXP',
       '',
       'critical chain   package-1 → package-2',
       '',
@@ -494,13 +493,13 @@ test('C002 invariant: neither document stands in for the other, so a mark never 
   const grilledModel = twoLevelModel(grilledOnly);
   assert.deepEqual(grilledModel.grilledIds, new Set(['pkg-0001']));
   assert.deepEqual(grilledModel.explainedIds, new Set());
-  assert.ok(renderPlan(grilledModel).includes('package-1 🟠 GRI:?'));
+  assert.ok(renderPlan(grilledModel).includes('package-1 ◻️ WTR ◻️ WAL 🟠 GRI:?'));
   assert.equal(renderPlan(grilledModel).includes('🔴 EXP'), false);
 
   const explainedModel = twoLevelModel(explainedOnly);
   assert.deepEqual(explainedModel.explainedIds, new Set(['pkg-0001']));
   assert.deepEqual(explainedModel.grilledIds, new Set());
-  assert.ok(renderPlan(explainedModel).includes('package-1 🔴 EXP'));
+  assert.ok(renderPlan(explainedModel).includes('package-1 ◻️ WTR ◻️ WAL 🔴 EXP'));
   assert.equal(renderPlan(explainedModel).includes('GRI:'), false);
 });
 
@@ -547,8 +546,8 @@ test('C001 boundary: a workspace that grills everything marks every line, and on
   const allText = renderPlan(twoLevelModel(all));
 
   assert.equal(allText.match(/🟠 GRI:\?/g).length, 2);
-  assert.ok(allText.includes('  * crates/protocol/package-1 🟠 GRI:?'));
-  assert.ok(allText.includes('  * crates/protocol/package-2 🟠 GRI:?'));
+  assert.ok(allText.includes('  * crates/protocol/package-1 ◻️ WTR ◻️ WAL 🟠 GRI:?'));
+  assert.ok(allText.includes('  * crates/protocol/package-2 ◻️ WTR ◻️ WAL 🟠 GRI:?'));
   assert.doesNotMatch(allText, /🔴 EXP/);
   assert.doesNotMatch(renderPlan(twoLevelModel(fixture(t))), /GRI:/);
 });
@@ -563,8 +562,8 @@ test('C001 invariant: the focused block is unchanged by the grilled state', (t) 
   const focus = (workspace) => renderFocus({ model: twoLevelModel(workspace), packageId: 'pkg-0003' });
 
   // The plan of the very fixture whose block is compared carries the mark, so this case is
-  // red while the label is absent and green only once the mark exists and is confined to it.
-  assert.ok(renderPlan(twoLevelModel(grilled)).includes('    crates/protocol/package-3 🟠 GRI:?\n'));
+  // fails while the label is absent and passes only once the mark exists and is confined to it.
+  assert.ok(renderPlan(twoLevelModel(grilled)).includes('    crates/protocol/package-3 ◻️ WTR ◻️ WAL 🟠 GRI:?\n'));
   assert.equal(focus(grilled), focus(plain));
   assert.doesNotMatch(focus(grilled), /GRI:/);
 });
@@ -630,12 +629,14 @@ test('C001 postcondition: the marks follow the pipeline order, and a package the
       `# ${basename(workspace.root)} build order — 3 dirs / 2 levels / 2 dependencies`,
       '',
       '<level 0>',
-      '  * crates/protocol/package-1 🔴 EXP 🟠 GRI:? 🟡 SEQ:?',
+      '  * crates/protocol/package-1 ◻️ WTR   ◻️ WAL 🔴 EXP 🟠 GRI:?',
+      '                              🟡 SEQ:?',
       '',
       '<level 1>',
-      '  * crates/protocol/package-2        🟠 GRI:? 🟡 SEQ:?',
+      '  * crates/protocol/package-2 ◻️ WTR   ◻️ WAL        🟠 GRI:?',
+      '                              🟡 SEQ:?',
       '',
-      '    crates/protocol/package-3 🔴 EXP',
+      '    crates/protocol/package-3 ◻️ WTR   ◻️ WAL 🔴 EXP',
       '',
       'critical chain   package-1 → package-2',
       '',
@@ -661,7 +662,7 @@ test('C002 invariant: the judged mark appears without the explanation mark, and 
   t.after(() => explainedOnly.remove());
 
   const carriedText = renderPlan(twoLevelModel(carriedOnly));
-  assert.ok(carriedText.includes('  * crates/protocol/package-1 🟠 GRI:? 🟡 SEQ:?'));
+  assert.ok(carriedText.includes('  * crates/protocol/package-1 ◻️ WTR   ◻️ WAL 🟠 GRI:?\n                              🟡 SEQ:?'));
   assert.equal(carriedText.includes('🔴 EXP'), false);
 
   // And the reverse: an explanation alone is never read as a distribution, so neither probe is
@@ -676,9 +677,10 @@ test('C002 boundary: a complete package always carries the grill mark, because i
   // The implication is stated rather than left implicit: a verdict reads a ledger out of RFC.md,
   // so a package the distribution reached without having been grilled is not a state this plan
   // can report, and a line claiming one would mean the reader looked in a second place.
-  for (const line of text.split('\n')) {
-    if (!line.includes('🟡 SEQ:')) continue;
-    assert.ok(line.includes('🟠 GRI:'), line);
+  const lines = text.split('\n');
+  for (let index = 0; index < lines.length; index += 1) {
+    if (!/🟡 SEQ:|❌ SEQ:/.test(lines[index])) continue;
+    assert.ok(lines[index - 1].includes('🟠 GRI:'), lines[index - 1]);
   }
 });
 
@@ -701,7 +703,7 @@ test('C002 boundary: only the whole entry name counts, so a renamed or stray vie
   const lines = renderPlan(twoLevelModel(workspace))
     .split('\n')
     .filter((line) => line.includes('crates/protocol/package-1'));
-  assert.deepEqual(lines, ['  * crates/protocol/package-1'], 'a directory with nothing to judge ends at its path');
+  assert.deepEqual(lines, ['  * crates/protocol/package-1 ◻️ WTR ◻️ WAL'], 'a directory with nothing to judge ends at its path');
 });
 
 test('C002 boundary: the view is read from the package directory and from no directory around it', (t) => {
@@ -723,7 +725,7 @@ test('C004 invariant: a view that cannot be read is a failure and never an unmar
   writeFileSync(workspace.viewPathOf('pkg-0003'), '');
 
   const text = renderPlan(twoLevelModel(workspace));
-  assert.ok(text.includes('    crates/protocol/package-3 🔴 EXP          ❌ SEQ:?\n'));
+  assert.ok(text.includes('    crates/protocol/package-3 ◻️ WTR   ◻️ WAL 🔴 EXP\n                              ❌ SEQ:?\n'));
   assert.deepEqual(twoLevelModel(workspace).sequenceVerdicts.get('pkg-0003'), { state: 'failed', reason: 'unreadable-view' });
 });
 
@@ -736,7 +738,7 @@ test('C004 boundary: a view projected before the carriage shows no mark at all',
 
   const verdicts = twoLevelModel(workspace).sequenceVerdicts;
   assert.deepEqual(verdicts.get('pkg-0001'), { state: 'not-yet', reason: 'view-predates-the-carriage' });
-  assert.ok(renderPlan(twoLevelModel(workspace)).includes('  * crates/protocol/package-1 🔴 EXP\n'));
+  assert.ok(renderPlan(twoLevelModel(workspace)).includes('  * crates/protocol/package-1 ◻️ WTR   ◻️ WAL 🔴 EXP\n'));
 });
 
 test('C003 boundary: a view carrying a unit its own ledger omits prints the failure mark', (t) => {
@@ -757,9 +759,11 @@ test('C003 boundary: a view carrying a unit its own ledger omits prints the fail
   });
 
   const text = renderPlan(twoLevelModel(workspace));
-  const packageLine = text.split('\n').find((line) => line.includes('crates/protocol/package-2'));
-  assert.match(packageLine, /🟠 GRI:\? ❌ SEQ:\?$/);
-  assert.doesNotMatch(packageLine, /🟡 SEQ:/);
+  const lines = text.split('\n');
+  const packageIndex = lines.findIndex((line) => line.includes('crates/protocol/package-2'));
+  assert.match(lines[packageIndex], /🟠 GRI:\?$/);
+  assert.match(lines[packageIndex + 1], /❌ SEQ:\?$/);
+  assert.doesNotMatch(lines[packageIndex + 1], /🟡 SEQ:/);
 });
 
 test('C004 boundary: a package whose directory is absent stays unmarked instead of failing the plan', (t) => {
@@ -768,7 +772,8 @@ test('C004 boundary: a package whose directory is absent stays unmarked instead 
   const model = twoLevelModel(workspace);
 
   assert.deepEqual(model.sequenceVerdicts.get('pkg-0002'), { state: 'not-yet', reason: 'no-view' });
-  assert.equal(renderPlan(model).includes('package-2 '), false);
+  const packageLine = renderPlan(model).split('\n').find((line) => line.includes('crates/protocol/package-2'));
+  assert.equal(packageLine, '  * crates/protocol/package-2 ◻️ WTR   ◻️ WAL');
   assert.deepEqual(model.sequenceVerdicts.get('pkg-0001'), { state: 'complete', reason: null });
 });
 
@@ -778,8 +783,8 @@ test('C001 boundary: a workspace where every package is judged complete marks ev
   const allText = renderPlan(twoLevelModel(all));
 
   assert.equal(allText.match(/🟡 SEQ:\?/g).length, 2);
-  assert.ok(allText.includes('  * crates/protocol/package-1 🟠 GRI:? 🟡 SEQ:?'));
-  assert.ok(allText.includes('  * crates/protocol/package-2 🟠 GRI:? 🟡 SEQ:?'));
+  assert.ok(allText.includes('  * crates/protocol/package-1 ◻️ WTR   ◻️ WAL 🟠 GRI:?\n                              🟡 SEQ:?'));
+  assert.ok(allText.includes('  * crates/protocol/package-2 ◻️ WTR   ◻️ WAL 🟠 GRI:?\n                              🟡 SEQ:?'));
   assert.doesNotMatch(allText, /🔴 EXP/);
   assert.doesNotMatch(allText, /❌/);
   assert.doesNotMatch(renderPlan(twoLevelModel(fixture(t))), /🟡 SEQ:|❌ SEQ:/);
@@ -790,9 +795,9 @@ test('C001 invariant: the focused block is unchanged by the verdict', (t) => {
   const plain = fixture(t);
   const focus = (workspace) => renderFocus({ model: twoLevelModel(workspace), packageId: 'pkg-0003' });
 
-  // The plan of the very fixture whose block is compared carries the marks, so this case is red
-  // while they are absent and green only once they exist and are confined to the plan.
-  assert.ok(renderPlan(twoLevelModel(judged)).includes('crates/protocol/package-1 🔴 EXP 🟠 GRI:? 🟡 SEQ:?'));
+  // The plan of the very fixture whose block is compared carries the marks, so this case
+  // fails while they are absent and passes only once they exist and are confined to the plan.
+  assert.ok(renderPlan(twoLevelModel(judged)).includes('  * crates/protocol/package-1 ◻️ WTR   ◻️ WAL 🔴 EXP 🟠 GRI:?\n                              🟡 SEQ:?'));
   assert.equal(focus(judged), focus(plain));
   assert.doesNotMatch(focus(judged), /🟡 SEQ:|❌ SEQ:/);
 });
@@ -840,7 +845,7 @@ function columnOf(text, needle) {
   return index === -1 ? -1 : terminalWidth(text.slice(0, index));
 }
 
-const FIRST_MARK = /[🟤🔴🟠🟡🟢❌]/u;
+const FIRST_MARK = /[◻️🟤🔴🟠🟡🟢❌]/u;
 const PACKAGE_PATH = 'crates/protocol/package-1';
 
 /** A two-package chain with every counter present on the first package. */
@@ -861,7 +866,7 @@ function countedFixture(t) {
   return workspace;
 }
 
-test('C004 postcondition: the five fields render in pipeline order with the full-width glyphs', (t) => {
+test('C004 postcondition: the ten fields render in pipeline order with the full-width glyphs', (t) => {
   const workspace = countedFixture(t);
   const model = twoLevelModel(workspace);
   const lines = renderPlan(model).split('\n');
@@ -869,15 +874,15 @@ test('C004 postcondition: the five fields render in pipeline order with the full
   const row1 = lines[pathIndex];
   const row2 = lines[pathIndex + 1];
 
-  assert.equal(row1, '  * crates/protocol/package-1 🟤 EDU:10 🔴 EXP 🟠 GRI:3 🟡 SEQ:3');
-  assert.match(row2, /^ {30}🟢 SMO:2$/);
+  assert.equal(row1, '  * crates/protocol/package-1 ◻️ WTR   ◻️ WAL   🟤 EDU:10 🔴 EXP 🟠 GRI:3');
+  assert.match(row2, /^ {30}🟡 SEQ:3 🟢 SMO:2$/);
   assert.deepEqual(
     [...row1].filter((character) => FIRST_MARK.test(character)).map((character) => character.codePointAt(0)),
-    [0x1F7E4, 0x1F534, 0x1F7E0, 0x1F7E1],
+    [0x25FB, 0xFE0F, 0x25FB, 0xFE0F, 0x1F7E4, 0x1F534, 0x1F7E0],
   );
   assert.deepEqual(
     [...row2].filter((character) => FIRST_MARK.test(character)).map((character) => character.codePointAt(0)),
-    [0x1F7E2],
+    [0x1F7E1, 0x1F7E2],
   );
 });
 
@@ -902,12 +907,13 @@ test('C005 postcondition: every first mark starts at the exact model column', (t
   });
   t.after(() => workspace.remove());
   const text = renderPlan(twoLevelModel(workspace));
-  const marked = text.split('\n').filter((line) => FIRST_MARK.test(line));
+  // Row 1 begins with the workspace marks, so the first mark of every path line is WTR.
+  const marked = text.split('\n').filter((line) => line.includes('◻️'));
 
   assert.equal(text.includes('\t'), false, text);
-  assert.equal(marked.length, 6);
+  assert.equal(marked.length, 3);
   for (const line of marked) {
-    assert.equal(columnOf(line, line.match(FIRST_MARK)[0]), 48, line);
+    assert.equal(columnOf(line, '◻️'), 48, line);
   }
 });
 
@@ -926,8 +932,8 @@ test('C005 invariant: the column is the longest prefix plus one, not the next ta
 
   assert.equal(model.markColumn, 34);
   assert.equal(text.includes('\t'), false, text);
-  assert.equal(line, '  * crates/protocol/package-12345 🟤 EDU:10');
-  assert.equal(columnOf(line, '🟤'), 34);
+  assert.equal(line, '  * crates/protocol/package-12345 ◻️ WTR ◻️ WAL 🟤 EDU:10');
+  assert.equal(columnOf(line, '◻️'), 34);
 });
 
 test('C005 postcondition: a full-width path keeps every mark in the same column', (t) => {
@@ -950,7 +956,7 @@ test('C005 postcondition: a full-width path keeps every mark in the same column'
   assert.equal(model.markColumn, 33);
   assert.equal(text.includes('\t'), false, text);
   assert.equal(marked.length, 3);
-  for (const line of marked) assert.equal(columnOf(line, '🟤'), 33, line);
+  for (const line of marked) assert.equal(columnOf(line, '◻️'), 33, line);
 });
 
 test('C004 boundary: an absent middle field keeps its width, so the later field stays in its column', (t) => {
@@ -966,13 +972,14 @@ test('C004 boundary: an absent middle field keeps its width, so the later field 
     },
   });
   t.after(() => workspace.remove());
-  const text = renderPlan(twoLevelModel(workspace));
-  const line = text.split('\n').find((entry) => entry.includes('package-2'));
+  const lines = renderPlan(twoLevelModel(workspace)).split('\n');
+  const pathIndex = lines.findIndex((entry) => entry.includes('package-2'));
+  const line = lines[pathIndex];
 
-  assert.equal(text.includes('\t'), false, text);
-  assert.match(line, /🟤 EDU:10 {8}🟠 GRI:\?/);
-  // EDU cell (9) + separator + blank EXP cell (6) + separator + GRI cell (8) + separator.
-  assert.equal(columnOf(line, '🟡'), 30 + 9 + 1 + 6 + 1 + 8 + 1);
+  assert.equal(lines.join('\n').includes('\t'), false, lines.join('\n'));
+  assert.match(line, /◻️ WTR   ◻️ WAL 🟤 EDU:10 {8}🟠 GRI:\?/);
+  // Row 2 starts at markColumn even when every middle field in that package is absent.
+  assert.equal(columnOf(lines[pathIndex + 1], '🟡'), 30);
 });
 
 test('C004 invariant: multi-digit counters keep the next field in the same column', (t) => {
@@ -988,12 +995,15 @@ test('C004 invariant: multi-digit counters keep the next field in the same colum
   });
   t.after(() => workspace.remove());
   const text = renderPlan(twoLevelModel(workspace));
-  const lines = text.split('\n').filter((line) => line.includes('package-'));
+  const lines = text.split('\n');
+  const pathLines = lines.filter((line) => line.includes('package-'));
 
   assert.equal(text.includes('\t'), false, text);
-  assert.ok(lines[0].includes('🟠 GRI:3'));
-  assert.ok(lines[1].includes('🟠 GRI:12'));
-  assert.equal(columnOf(lines[0], '🟡'), columnOf(lines[1], '🟡'));
+  assert.ok(pathLines[0].includes('🟠 GRI:3'));
+  assert.ok(pathLines[1].includes('🟠 GRI:12'));
+  const firstRow2 = lines[lines.indexOf(pathLines[0]) + 1];
+  const secondRow2 = lines[lines.indexOf(pathLines[1]) + 1];
+  assert.equal(columnOf(firstRow2, '🟡'), columnOf(secondRow2, '🟡'));
 });
 
 test('C004 invariant: an unknown count shares its column with a known multi-digit count', (t) => {
@@ -1005,20 +1015,27 @@ test('C004 invariant: an unknown count shares its column with a known multi-digi
     counters: { 'pkg-0001': { completedSessions: 12, distributions: 3, digest: 'a'.repeat(64) } },
   });
   t.after(() => workspace.remove());
-  const lines = renderPlan(twoLevelModel(workspace)).split('\n').filter((line) => line.includes('package-'));
-  const known = lines.find((line) => line.includes('🟠 GRI:12'));
-  const unknown = lines.find((line) => line.includes('🟠 GRI:?'));
+  const lines = renderPlan(twoLevelModel(workspace)).split('\n');
+  const knownIndex = lines.findIndex((line) => line.includes('🟠 GRI:12'));
+  const unknownIndex = lines.findIndex((line) => line.includes('🟠 GRI:?'));
 
-  assert.notEqual(known, undefined);
-  assert.notEqual(unknown, undefined);
-  assert.equal(columnOf(known, '🟠'), columnOf(unknown, '🟠'));
-  assert.equal(columnOf(known, '🟡'), columnOf(unknown, '🟡'));
+  assert.notEqual(knownIndex, -1);
+  assert.notEqual(unknownIndex, -1);
+  assert.equal(columnOf(lines[knownIndex], '🟠'), columnOf(lines[unknownIndex], '🟠'));
+  assert.equal(columnOf(lines[knownIndex + 1], '🟡'), columnOf(lines[unknownIndex + 1], '🟡'));
 });
 
 test('C004 boundary: a line with no marks carries no padding and ends at its path', (t) => {
   const workspace = materializeOrderWorkspace({ packages: ['pkg-0001'], levels: [['pkg-0001']] });
   t.after(() => workspace.remove());
-  const line = renderPlan(twoLevelModel(workspace)).split('\n').find((entry) => entry.includes('package-1'));
+  const treeManifest = workspace.treeManifest;
+  const allocateManifest = workspace.allocateManifest;
+  // Both root manifests absent is the only reachable no-mark shape: with either one the
+  // workspace-stage mark exists, so the line legitimately carries padding.
+  rmSync(workspace.treeManifestPath, { force: true });
+  rmSync(workspace.allocateManifestPath, { force: true });
+  const model = buildModel({ root: workspace.root, treeManifest, allocateManifest });
+  const line = renderPlan(model).split('\n').find((entry) => entry.includes('package-1'));
 
   assert.equal(line, '  * crates/protocol/package-1');
   assert.equal(line.includes('\t'), false);
@@ -1031,17 +1048,18 @@ test('C002/C003 boundary: an unknown counter prints the question mark in the sam
     documents: { grilled: ['pkg-0001'], carried: ['pkg-0001'] },
   });
   t.after(() => workspace.remove());
-  const line = renderPlan(twoLevelModel(workspace)).split('\n').find((entry) => entry.includes('package-1'));
+  const lines = renderPlan(twoLevelModel(workspace)).split('\n');
+  const pathIndex = lines.findIndex((entry) => entry.includes('package-1'));
 
-  assert.ok(line.includes('🟠 GRI:?'));
-  assert.ok(line.includes('🟡 SEQ:?'));
+  assert.ok(lines[pathIndex].includes('🟠 GRI:?'));
+  assert.ok(lines[pathIndex + 1].includes('🟡 SEQ:?'));
   // The question mark is the unknown; a fabricated zero would read as a measured count.
-  assert.equal(/GRI:\d/.test(line), false);
-  assert.equal(/SEQ:\d/.test(line), false);
-  assert.equal(line.includes('GRILLED'), false);
-  assert.equal(line.includes('SEQUENCED'), false);
-  assert.equal(line.includes('FAILED-SEQ'), false);
-  assert.equal(line.includes('\t'), false);
+  assert.equal(/GRI:\d/.test(lines[pathIndex]), false);
+  assert.equal(/SEQ:\d/.test(lines[pathIndex + 1]), false);
+  assert.equal(lines[pathIndex].includes('GRILLED'), false);
+  assert.equal(lines[pathIndex + 1].includes('SEQUENCED'), false);
+  assert.equal(lines[pathIndex + 1].includes('FAILED-SEQ'), false);
+  assert.equal(lines.join('\n').includes('\t'), false);
 });
 
 test('C005 postcondition: the focused block pads full-width paths to the same display column', (t) => {
@@ -1110,4 +1128,36 @@ test('C004 invariant: a failed SEQ followed by SMO keeps SMO in the same column'
   assert.notEqual(failed, undefined);
   assert.equal(smoothLines.length, 2);
   assert.equal(columnOf(smoothLines[0], '🟢'), columnOf(smoothLines[1], '🟢'));
+});
+
+test('C001 error: a missing allocate manifest removes its mark and keeps the tree mark', (t) => {
+  const workspace = materializeOrderWorkspace({ packages: ['pkg-0001'], levels: [['pkg-0001']] });
+  t.after(() => workspace.remove());
+  const treeManifest = workspace.treeManifest;
+  const allocateManifest = workspace.allocateManifest;
+  rmSync(workspace.allocateManifestPath, { force: true });
+  const model = buildModel({ root: workspace.root, treeManifest, allocateManifest });
+  const line = renderPlan(model).split('\n').find((entry) => entry.includes('package-1'));
+
+  assert.match(line, /◻️ WTR/);
+  assert.equal(line.includes('WAL'), false);
+});
+
+test('C001 invariant: with no root manifest the counters still render, so a probe never removes a field it does not own', (t) => {
+  const workspace = materializeOrderWorkspace({
+    packages: ['pkg-0001'],
+    levels: [['pkg-0001']],
+    rootCounters: { educe: 10, smooth: 2 },
+  });
+  t.after(() => workspace.remove());
+  const treeManifest = workspace.treeManifest;
+  const allocateManifest = workspace.allocateManifest;
+  rmSync(workspace.treeManifestPath, { force: true });
+  rmSync(workspace.allocateManifestPath, { force: true });
+  const lines = renderPlan(buildModel({ root: workspace.root, treeManifest, allocateManifest })).split('\n');
+  const pathIndex = lines.findIndex((entry) => entry.includes('package-1'));
+
+  assert.equal(lines.join('\n').includes('◻️'), false);
+  assert.match(lines[pathIndex], /🟤 EDU:10/);
+  assert.match(lines[pathIndex + 1], /🟢 SMO:2/);
 });

@@ -12,7 +12,7 @@ import { join } from 'node:path';
 
 import { materializeOrderWorkspace } from '../helpers/order-workspace.mjs';
 import { buildModel, displayWidth } from '../../../.claude/scripts/workspacify-order/lib/levels.mjs';
-import { buildPlanLayout, renderPlan } from '../../../.claude/scripts/workspacify-order/lib/render.mjs';
+import { buildPlanLayout, FIELD_COLUMNS, FIELD_ROWS, FIELD_SEQUENCE, renderPlan } from '../../../.claude/scripts/workspacify-order/lib/render.mjs';
 
 // [::TICKET::] PX-393 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-393 --for-spec --no-implementation-order`.
 function modelOf(workspace) {
@@ -57,6 +57,7 @@ function writeLedger(workspace, id, total, reviewed = 0) {
   }, null, 2));
 }
 
+// [::TICKET::] PX-459 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-459 --for-spec --no-implementation-order`.
 test('C004 each column is the widest paired field, and both rows start at markColumn', (t) => {
   const workspace = materializeOrderWorkspace({
     packages: ['pkg-0001', 'pkg-0002'],
@@ -82,21 +83,23 @@ test('C004 each column is the widest paired field, and both rows start at markCo
   const layout = buildPlanLayout(model);
 
   assert.deepEqual(layout.columns.map((column) => column.keys), [
-    ['edu', 'smo'], ['exp', 'gra'], ['gri', 'bou'], ['seq', 'spl'],
+    ['wtr', 'seq'], ['wal', 'smo'], ['edu', 'gra'], ['exp', 'bou'], ['gri', 'spl'],
   ]);
-  assert.equal(layout.columns[0].width, 6);
-  assert.equal(layout.columns[1].width, 5);
+  assert.equal(layout.columns[0].width, 5);
+  assert.equal(layout.columns[1].width, 6);
   assert.equal(layout.columns[2].width, 5);
   assert.equal(layout.columns[3].width, 5);
+  assert.equal(layout.columns[4].width, 5);
 
   const lines = renderPlan(model).split('\n');
   const pathIndex = lines.findIndex((line) => line.includes('crates/protocol/package-1'));
-  assert.match(lines[pathIndex], /🟤 EDU:3 {2}🔴 EXP {3}🟠 GRI:3 🟡 SEQ:3/);
-  assert.equal(columnOf(lines[pathIndex], '🟤'), model.markColumn);
-  assert.equal(columnOf(lines[pathIndex + 1], '🟢'), model.markColumn);
-  assert.equal(columnOf(lines[pathIndex], '🔴'), columnOf(lines[pathIndex + 1], '🔵'));
-  assert.equal(columnOf(lines[pathIndex], '🟠'), columnOf(lines[pathIndex + 1], '🟣'));
-  assert.equal(columnOf(lines[pathIndex], '🟡'), columnOf(lines[pathIndex + 1], '⚫️'));
+  assert.match(lines[pathIndex], /◻️ WTR   ◻️ WAL    🟤 EDU:3 🔴 EXP   🟠 GRI:3/);
+  assert.match(lines[pathIndex + 1], /🟡 SEQ:3 🟢 SMO:20 🔵 GRA:1 🟣 BOU:1 ⚫️ SPL:1/);
+  assert.equal(columnOf(lines[pathIndex], '◻️'), model.markColumn);
+  assert.equal(columnOf(lines[pathIndex + 1], '🟡'), model.markColumn);
+  assert.equal(columnOf(lines[pathIndex], '🟤'), columnOf(lines[pathIndex + 1], '🔵'));
+  assert.equal(columnOf(lines[pathIndex], '🔴'), columnOf(lines[pathIndex + 1], '🟣'));
+  assert.equal(columnOf(lines[pathIndex], '🟠'), columnOf(lines[pathIndex + 1], '⚫️'));
 });
 
 test('C004 a missing middle field keeps a blank cell, so the later column does not move', (t) => {
@@ -118,11 +121,12 @@ test('C004 a missing middle field keeps a blank cell, so the later column does n
   t.after(() => workspace.remove());
   const model = modelOf(workspace);
   const lines = renderPlan(model).split('\n');
-  const first = lines.find((line) => line.includes('package-1'));
-  const second = lines.find((line) => line.includes('package-2'));
+  const firstIndex = lines.findIndex((line) => line.includes('package-1'));
+  const secondIndex = lines.findIndex((line) => line.includes('package-2'));
+  const second = lines[secondIndex];
 
   assert.match(second, /🟤 EDU:10 {8}🟠 GRI:\?/);
-  assert.equal(columnOf(first, '🟡'), columnOf(second, '🟡'));
+  assert.equal(columnOf(lines[firstIndex + 1], '🟡'), columnOf(lines[secondIndex + 1], '🟡'));
 });
 
 test('C004 multi-digit counters keep the paired columns aligned', (t) => {
@@ -143,11 +147,15 @@ test('C004 multi-digit counters keep the paired columns aligned', (t) => {
   const smoothLines = lines.filter((line) => line.includes('🟢 SMO:20'));
 
   assert.equal(smoothLines.length, 2);
-  assert.match(lines.find((line) => line.includes('GRI:3')), /🟡 SEQ:3/);
-  assert.match(lines.find((line) => line.includes('GRI:12')), /🟡 SEQ:3/);
+  const griThreeIndex = lines.findIndex((line) => line.includes('GRI:3'));
+  const griTwelveIndex = lines.findIndex((line) => line.includes('GRI:12'));
+  assert.match(lines[griThreeIndex], /🟠 GRI:3/);
+  assert.match(lines[griTwelveIndex], /🟠 GRI:12/);
+  assert.match(lines[griThreeIndex + 1], /🟡 SEQ:3/);
+  assert.match(lines[griTwelveIndex + 1], /🟡 SEQ:3/);
   assert.equal(
-    columnOf(lines.find((line) => line.includes('GRI:3')), '🟡'),
-    columnOf(lines.find((line) => line.includes('GRI:12')), '🟡'),
+    columnOf(lines[griThreeIndex + 1], '🟡'),
+    columnOf(lines[griTwelveIndex + 1], '🟡'),
   );
 });
 
@@ -219,4 +227,19 @@ test('C007 no line carries trailing whitespace or a tab, and the white circle is
     assert.equal(line, line.trimEnd());
     assert.equal(line.includes('\t'), false);
   }
+});
+
+// PX-459 — the ten fields must fill whole rows, and every grid glyph must be two columns.
+// [::TICKET::] PX-459 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-459 --for-spec --no-implementation-order`.
+test('C002 invariant: the ten pipeline fields fill exactly two rows of five', () => {
+  assert.deepEqual(FIELD_SEQUENCE, ['wtr', 'wal', 'edu', 'exp', 'gri', 'seq', 'smo', 'gra', 'bou', 'spl']);
+  assert.equal(FIELD_COLUMNS, 5);
+  assert.equal(FIELD_ROWS, 2);
+  assert.equal(FIELD_SEQUENCE.length % FIELD_COLUMNS, 0);
+});
+
+test('C003 invariant: the white medium square measures two columns like every grid glyph', () => {
+  assert.equal(displayWidth('◻️'), 2);
+  assert.equal(displayWidth('⚫️'), 2);
+  assert.equal(displayWidth('⚪️'), 2);
 });

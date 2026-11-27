@@ -16,7 +16,13 @@ import {
   materializeOrderWorkspace,
 } from '../helpers/order-workspace.mjs';
 import { WorkspacifyOrderError } from '../../../.claude/scripts/workspacify-order/lib/errors.mjs';
-import { ancestorsOf, loadWorkspace, resolveWorkspaceRoot } from '../../../.claude/scripts/workspacify-order/lib/workspace.mjs';
+import {
+  ancestorsOf,
+  holdsAllocateManifest,
+  holdsTreeManifest,
+  loadWorkspace,
+  resolveWorkspaceRoot,
+} from '../../../.claude/scripts/workspacify-order/lib/workspace.mjs';
 
 // [::TICKET::] PX-223 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-223 --for-spec --no-implementation-order`.
 function scratchDirectory(t, prefix) {
@@ -99,4 +105,31 @@ test('C001 invariant: an unreadable manifest reports the artefact that could not
     () => loadWorkspace(workspace.root),
     (error) => error instanceof WorkspacifyOrderError && error.message.includes(ALLOCATE_MANIFEST_FILE_NAME),
   );
+});
+
+// PX-459 — the two workspace-stage probes. Existence is the whole rule: the probe never
+// opens the manifest and a root without a manifest answers false instead of failing.
+// [::TICKET::] PX-459 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-459 --for-spec --no-implementation-order`.
+test('C001 postcondition: both root probes answer true for a materialized workspace', (t) => {
+  const workspace = materializeOrderWorkspace({ packages: ['pkg-0001'] });
+  t.after(() => workspace.remove());
+
+  assert.equal(holdsTreeManifest(workspace.root), true);
+  assert.equal(holdsAllocateManifest(workspace.root), true);
+});
+
+test('C001 error: a missing allocate manifest answers false for its probe and true for the tree probe', (t) => {
+  const workspace = materializeOrderWorkspace({ packages: ['pkg-0001'] });
+  t.after(() => workspace.remove());
+  rmSync(workspace.allocateManifestPath);
+
+  assert.equal(holdsTreeManifest(workspace.root), true);
+  assert.equal(holdsAllocateManifest(workspace.root), false);
+});
+
+test('C001 boundary: a directory with no manifests answers false for both probes without throwing', (t) => {
+  const empty = scratchDirectory(t, 'workspacify-order-probes-');
+
+  assert.equal(holdsTreeManifest(empty), false);
+  assert.equal(holdsAllocateManifest(empty), false);
 });

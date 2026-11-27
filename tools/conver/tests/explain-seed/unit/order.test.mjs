@@ -34,15 +34,16 @@ const ORDER_MODULE = fileURLToPath(new URL('../../../.claude/scripts/explain-see
 const RULE = '─'.repeat(66);
 
 /** The order view's stdout for the two-package fixture, as recorded from a real run. */
+// [::TICKET::] PX-459 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-459 --for-spec --no-implementation-order`.
 const FOCUS_CAPTURE = [
   '',
   '# explain-seed-fixture implementation order — 2 dirs / 2 levels / 1 dependencies',
   '',
   '<level 0>',
-  '  * crates/protocol/alpha',
+  '  * crates/protocol/alpha ◻️ WTR ◻️ WAL',
   '',
   '<level 1>',
-  '  * crates/protocol/beta',
+  '  * crates/protocol/beta ◻️ WTR ◻️ WAL',
   '',
   'critical chain   alpha → beta',
   RULE,

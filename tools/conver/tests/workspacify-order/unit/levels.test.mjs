@@ -6,7 +6,8 @@
 // restatement of it.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readFileSync, rmSync } from 'node:fs';
+import { join } from 'node:path';
 
 import { materializeOrderWorkspace, packageIdAt } from '../helpers/order-workspace.mjs';
 import { WorkspacifyOrderError } from '../../../.claude/scripts/workspacify-order/lib/errors.mjs';
@@ -261,4 +262,35 @@ test('C001/C002/C003 postcondition: buildModel carries the root and per-package 
   assert.equal(model.grillGenerations.get('pkg-0002'), null);
   assert.equal(model.distributionGenerations.get('pkg-0001'), 3);
   assert.equal(model.distributionGenerations.get('pkg-0002'), null);
+});
+
+// PX-459 — the two workspace-stage probes are resolved once per build, from the root only.
+// [::TICKET::] PX-459 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-459 --for-spec --no-implementation-order`.
+test('C001 postcondition: buildModel carries the root manifest probes', (t) => {
+  const workspace = materializeOrderWorkspace({
+    packages: ['pkg-0001'],
+    levels: [['pkg-0001']],
+  });
+  t.after(() => workspace.remove());
+
+  const model = buildModel({ root: workspace.root, ...loadPair(workspace) });
+
+  assert.deepEqual(model.rootManifests, { tree: true, allocate: true });
+  assert.equal(model.rootManifests.tree, true);
+  assert.equal(model.rootManifests.allocate, true);
+});
+
+test('C001 error: a missing allocate manifest answers false for that probe only', (t) => {
+  const workspace = materializeOrderWorkspace({
+    packages: ['pkg-0001'],
+    levels: [['pkg-0001']],
+  });
+  t.after(() => workspace.remove());
+  const treeManifest = workspace.treeManifest;
+  const allocateManifest = workspace.allocateManifest;
+  rmSync(join(workspace.root, 'WORKSPACIFY-ALLOCATE-MANIFEST.json'));
+
+  const model = buildModel({ root: workspace.root, treeManifest, allocateManifest });
+
+  assert.deepEqual(model.rootManifests, { tree: true, allocate: false });
 });

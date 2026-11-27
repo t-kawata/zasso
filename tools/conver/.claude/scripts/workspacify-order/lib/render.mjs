@@ -30,6 +30,12 @@ export const GRAPH_GLYPH = '🔵';
 export const BOUNDIFY_GLYPH = '🟣';
 export const SPLIT_GLYPH = '⚫️';
 
+/** The two workspace-stage marks: the root manifests the first two commands wrote. */
+export const WTR_GLYPH = '◻️';
+export const WTR_TEXT = 'WTR';
+export const WAL_GLYPH = '◻️';
+export const WAL_TEXT = 'WAL';
+
 /** The ticket row's mark and label; the ledger sits to the right of them. */
 export const TICKETS_GLYPH = '⚪️';
 export const TICKETS_TEXT = 'TICKETS:';
@@ -50,9 +56,9 @@ export const SPLIT_TEXT = 'SPL';
 export const UNKNOWN_COUNT = '?';
 
 /** The field order is the pipeline order, so a line reads left to right as the work happened. */
-export const FIELD_SEQUENCE = Object.freeze(['edu', 'exp', 'gri', 'seq', 'smo', 'gra', 'bou', 'spl']);
-/** Four columns, two rows; the paired rows share every column's width. */
-export const FIELD_COLUMNS = 4;
+export const FIELD_SEQUENCE = Object.freeze(['wtr', 'wal', 'edu', 'exp', 'gri', 'seq', 'smo', 'gra', 'bou', 'spl']);
+/** Five columns, two rows; the paired rows share every column's width. */
+export const FIELD_COLUMNS = 5;
 export const FIELD_ROWS = FIELD_SEQUENCE.length / FIELD_COLUMNS;
 /** Emoji presentation occupies two terminal columns. */
 export const EMOJI_COLUMNS = 2;
@@ -163,9 +169,33 @@ function smoothCell(model) {
   return generationCell(model.rootCounters.smo, SMOOTH_GLYPH, 'SMO');
 }
 
-// [::TICKET::] PX-309, PX-313 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-309|PX-313) --for-spec --no-implementation-order`.
+/**
+ * A workspace-stage mark, or null when the workspace root lacks that manifest.
+ *
+ * The mark carries a label and no count: the manifest is either there or not, so an
+ * absent mark is omitted rather than printed as zero. The pair is workspace-level, so
+ * every package prints the same answer.
+ */
+// [::TICKET::] PX-459 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-459 --for-spec --no-implementation-order`.
+function manifestCell(present, glyph, label) {
+  return present ? { glyph, text: label } : null;
+}
+
+// [::TICKET::] PX-459 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-459 --for-spec --no-implementation-order`.
+function treeManifestCell(model) {
+  return manifestCell(model.rootManifests.tree, WTR_GLYPH, WTR_TEXT);
+}
+
+// [::TICKET::] PX-459 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-459 --for-spec --no-implementation-order`.
+function allocateManifestCell(model) {
+  return manifestCell(model.rootManifests.allocate, WAL_GLYPH, WAL_TEXT);
+}
+
+// [::TICKET::] PX-309, PX-313, PX-459 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-309|PX-313|PX-459) --for-spec --no-implementation-order`.
 function cellFor(model, id, key) {
   switch (key) {
+    case 'wtr': return treeManifestCell(model);
+    case 'wal': return allocateManifestCell(model);
     case 'edu': return educationCell(model);
     case 'exp': return explanationCell(model, id);
     case 'gri': return grillCell(model, id);
