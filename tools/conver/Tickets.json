@@ -71901,6 +71901,275 @@
           "done_at": "2026-11-27T04:07:50.033Z",
           "rfcDiscrepancies": [],
           "reviewed_at": "2026-11-27T04:09:04.118Z"
+        },
+        {
+          "id": 457,
+          "phaseId": -1,
+          "status": "reviewed",
+          "title": "pickup-conver-update-candidates: extract generalizable conver improvements from project development activity",
+          "specPath": "~/shyme/zasso/tools/conver/specs/PX-457.md",
+          "background": "### Goal\nShip a command that turns real `.claude` modifications in any conver-installed project into a strict, deduplicated, human-readable ledger of candidates that conver itself can absorb, so the harness improves from actual use rather than from speculation.\n\n### Purpose\nconver owns the workflow, gates, scripts, and rules that every project runs. When a project adapts its installed `.claude`, the adaptation is evidence of a general need. Without a capture mechanism the evidence stays local, the same fix is rediscovered project by project, and conver development drifts away from field reality. The ledger is the missing feedback path.\n\n### Motivation\nProjects already modify `.claude`; the conversation that produced this ticket started from exactly such a local improvement. The mechanism must be cheap enough to run whenever a project touches `.claude`, and strict enough that upstream review receives complete, testable, non-project-specific candidates instead of raw diffs.\n\n### Constraints\n- Scope is `.claude` only; outside changes are rejected.\n- Judgment stays with the AI; scripts mechanize scan, validation, storage, and rendering.\n- Every gate is a repair loop: a failure prints code, cause, artifact, field, action, and verify.\n- No new dependencies; scripts are CommonJS under `.claude/scripts` and tests are `.test.cjs`.\n- Criteria are versioned (criteriaVersion 1.0.0) and self-applied.\n- Uncommitted changes are included because `git diff @{u}` compares the worktree with the upstream commit.\n- Non-qualifying changes are never persisted; they are echoed to stdout only.",
+          "scope": [
+            "**Scope of changes (each change comprehensively):**\n- `.claude/commands/pickup-conver-update-candidates.md` — add: resolve CLAUDE_DIR once from the printed absolute path; run `scan`; stop on `skipped:no-changes`; stop with the named error when upstream is unset; read per-file diffs; apply G1-G6, the 10 value categories, X1-X8, and S-R-G-R-V per hunk; call `create` only for qualifying hunks; report counts and exclusions in the final message. Frontmatter carries `description` and `disable-model-invocation: true`.\n- `.claude/scripts/pickup-conver-update-candidates/criteria.js` — add: export SCHEMA_VERSION=1, CRITERIA_VERSION=1.0.0, ADMISSION_GATES G1-G6, VALUE_CATEGORIES (10), EXCLUSION_CODES X1-X8, STATUSES (candidate|accepted|absorbed), IMPACTS and CONFIDENCES (high|medium|low), RISK_LEVELS (low|medium|high), GENERALIZATIONS (direct|adapt), CHANGE_TYPES (added|modified|deleted|renamed), DISPLAY_LIMIT=50.\n- `.claude/scripts/pickup-conver-update-candidates/schema.js` — add: validateCandidate(candidate, options) returns findings; required S-R-G-R-V; enum checks; location containment using path.resolve plus a prefix check and realpath when the path exists; computeContentFingerprint(file, patch) is sha256 over the file plus the normalized patch with trailing whitespace stripped per line; a caller-supplied fingerprint is never trusted.\n- `.claude/scripts/pickup-conver-update-candidates/store.js` — add: loadLedger(workspace) returns an empty ledger or a named ERROR:ledger-unparseable; saveLedger(workspace, ledger, options) writes a sibling temp file and renames it, with an injectable renameImpl for crash tests; canonical key order; one trailing newline; allocateId(ledger) returns the next CUC-####.\n- `.claude/scripts/pickup-conver-update-candidates/scan.js` — add: resolve upstream with `git rev-parse --abbrev-ref --symbolic-full-name @{u}`; fail closed with ERROR:upstream-not-configured; run `git diff --stat @{u} -- <claudeDir>` and `git diff @{u} -- <claudeDir>`; list untracked files with `git ls-files --others --exclude-standard -- <claudeDir>` and synthesize added hunks; return `skipped:no-changes` only when both are empty; never traverse outside claudeDir.\n- `.claude/scripts/pickup-conver-update-candidates/render.js` — add: renderMarkdown(ledger) is deterministic; sorts by impact then id; caps the visible list at DISPLAY_LIMIT and appends `- …and N more candidates`; renders each candidate with Symptom, Remedy, Generality, Risk, Verification, and a fenced patch.\n- `.claude/scripts/pickup-conver-update-candidates/cli.js` — add: subcommands scan, create, list, show, update, delete, render; `--json` emits one JSON line; default human output is Markdown; every error uses repair-finding.js and exits 1; success exits 0. Export createCandidate and the other handlers for unit tests.\n- `tests/pickup-conver-update-candidates/*.test.cjs` — add: criteria, schema, store, scan, render, crud, and command-doc tests with node:test; fixtures under os.tmpdir(); no network.\n- `tests/pickup-conver-update-candidates/fixtures.cjs` — add shared helpers: makeRepo, installFakeUpstream, baseCandidate, makeCandidates, ledgerPath, repoRoot. Not a test file; not discovered by the test runner.\n- Data schema: new files CONVER-UPDATE-CANDIDATES.json (schemaVersion, criteriaVersion, workspace, claudeDir, upstreamRef, generatedAt, candidates[]) and CONVER-UPDATE-CANDIDATES.md at the workspace root. No existing schema changes.\n- Dependencies: none added; Node built-ins plus `.claude/scripts/lib/repair-finding.js` and `.claude/scripts/lib/path-utils.js`.\n- Config/env: no new environment variables; the upstream comes from git.",
+            "**Out of scope (intentionally excluded):**\n- Absorbing candidates into the conver development repository — separate process; this ticket only produces evidence.\n- Automatic semantic judgment of generalizability — the AI judges each hunk; the script enforces structure.\n- Changes outside `.claude` — the scan is path-scoped and any outside path is rejected.\n- Cross-project merge and weaker fingerprint normalization — future ticket.\n- Externalizing the taxonomy to a config file — future ticket; criteriaVersion stays in criteria.js for now.\n- Modifying existing commands or their behavior — G2 forbids it.",
+            "**Affected areas:**\n- Every project that installs conver: gains one command and seven scripts; no existing command role or output changes.\n- Workspace root: gains two generated files; both are reproducible from the ledger and safe to delete.\n- Installer: install.js mirrors the `.claude` tree and copies README.md into each installed tree, so the new files and documentation ship without a manifest edit.\n- Tests: new surface `tests/pickup-conver-update-candidates/` discovered by tests/run-all-surfaces.mjs.\n- Security: path containment and fail-closed upstream handling are new trust boundaries.",
+            "**Documentation and style:**\n- `README.md` — modify: add a harness-evolution command section naming `/pickup-conver-update-candidates`, CONVER-UPDATE-CANDIDATES.json, CONVER-UPDATE-CANDIDATES.md, criteriaVersion 1.0.0, and the rule that non-qualifying changes are never persisted. install.js copies README.md into every installed `.claude`, so one edit reaches every project.\n- `.claude/commands/pickup-conver-update-candidates.md` — style: English only, technical vocabulary, telegraphic imperative, high compression, high density, no redundancy, no information loss, minimal characters. Keep the NON-INTERACTIVE block, the Path anchor, and the Language Protocol; compress the rest to instructions and facts."
+          ],
+          "testUnit": [
+            "UT: [Normal] scan on a temp repository with one modified .claude/scripts/sample.js returns that path, its hunk header, and its per-file diff, and lists no path outside CLAUDE_DIR.",
+            "UT: [Normal] scan lists an untracked file under .claude as an added change with a synthesized diff, because git diff alone omits it.",
+            "UT: [Normal] create assigns CUC-0001 then CUC-0002 to successive candidates and writes both to CONVER-UPDATE-CANDIDATES.json.",
+            "UT: [Normal] render produces byte-identical Markdown for the same JSON across two runs.",
+            "UT: [Normal] list filters by primaryCriterion, status, and impact, and sorts by impact then id.",
+            "UT: [Normal] update accepts only whitelisted fields, revalidates the whole record, and re-renders Markdown.",
+            "UT: [Normal] delete removes exactly the named id and leaves all other candidates unchanged.",
+            "UT: [Normal] the command document names CLAUDE_DIR resolution, the empty-diff exit, the .claude-only scope, the exclusion-only-to-stdout rule, and criteriaVersion 1.0.0.",
+            "UT: [Normal] criteria.js exports exactly 6 admission gates, 10 value categories, and 8 exclusion codes, and the command document names every id.",
+            "UT: [Normal] README.md lists /pickup-conver-update-candidates, CONVER-UPDATE-CANDIDATES.json, CONVER-UPDATE-CANDIDATES.md, and criteriaVersion 1.0.0 under a harness-evolution section.",
+            "UT: [Error] a missing upstream branch fails closed with ERROR:upstream-not-configured and writes neither JSON nor Markdown.",
+            "UT: [Error] a candidate missing symptom, remedy, scope, risk, or verification is rejected, each missing field is named, and nothing is written.",
+            "UT: [Error] generalization=adapt with an empty adaptationPlan is rejected with ACTION: describe how project-specific residue is removed.",
+            "UT: [Error] an unknown criterion, status, impact, confidence, or riskLevel is rejected and the allowed enum values are printed.",
+            "UT: [Error] the create command rejects a record whose location.file resolves outside the claudeDir prefix, including a ../ traversal.",
+            "UT: [Error] an unreadable or invalid ledger JSON is reported with ERROR:ledger-unparseable and the original file is left untouched.",
+            "UT: [Boundary] an empty git diff stat against @{u} for CLAUDE_DIR with no untracked file returns skipped:no-changes, exit 0, and no JSON or Markdown file is created.",
+            "UT: [Boundary] a ledger with more candidates than the display limit keeps every candidate in JSON while Markdown ends with and N more candidates.",
+            "UT: [Boundary] a candidate with exactly the five required elements and no optional note passes validation.",
+            "UT: [Invariant] a create request whose contentFingerprint already exists returns skipped:duplicate and leaves the ledger unchanged.",
+            "UT: [Invariant] an interrupted write leaves the original JSON parseable because save uses temp file plus rename.",
+            "UT: [Invariant] every persisted candidate carries all five S-R-G-R-V elements and an allowed enum value from criteriaVersion 1.0.0.",
+            "UT: [Invariant] no persisted record has status rejected; exclusion happens before persistence and is only echoed to stdout.",
+            "UT: [Invariant] the JSON ledger is written with stable key order and a trailing newline so diffs stay reviewable.",
+            "UT: [Invariant] create never trusts a supplied contentFingerprint; it recomputes sha256 over file plus normalized patch and compares.",
+            "UT: [Invariant] every gate failure prints a repair finding with Cause, Artifact, Field, Action, and Verify lines.",
+            "UT: [Invariant] the command document is English-only, contains no TODO/TBD placeholders, keeps the NON-INTERACTIVE block, and stays within the 120-line compression budget.",
+            "UT: [Contract] @verifies C001 — precondition: A candidate location.file resolves outside the claudeDir prefix; postcondition: create rejects the record with ACTION: restrict the change to CLAUDE_DIR and writes nothing; invariant: No persisted candidate path escapes the claudeDir prefix.",
+            "UT: [Contract] @verifies C002 — precondition: The upstream diff stat for claudeDir is empty and no untracked file exists under claudeDir; postcondition: scan exits 0 with skipped:no-changes and writes neither JSON nor Markdown; invariant: No candidates file is created or modified when there is no diff and no untracked file.",
+            "UT: [Contract] @verifies C003 — precondition: No upstream branch is configured for the current branch; postcondition: scan exits non-zero with ERROR:upstream-not-configured and writes nothing; invariant: The scanner never guesses a baseline ref.",
+            "UT: [Contract] @verifies C004 — precondition: A candidate record omits symptom, remedy, scope, risk, or verification; postcondition: create rejects it, names each missing field, and writes nothing; invariant: Every persisted candidate carries the five S-R-G-R-V elements.",
+            "UT: [Contract] @verifies C005 — precondition: generalization is adapt and adaptationPlan is empty; postcondition: create rejects the record with ACTION: describe how project-specific residue will be removed; invariant: No adapt candidate exists without a concrete adaptation plan.",
+            "UT: [Contract] @verifies C006 — precondition: A record uses a criterion, status, impact, confidence, or riskLevel outside the allowed enum; postcondition: the validator rejects it and prints the allowed values; invariant: Every persisted enum value belongs to the criteriaVersion taxonomy.",
+            "UT: [Contract] @verifies C007 — precondition: A create request carries a contentFingerprint already present in the ledger; postcondition: create exits 0 with skipped:duplicate and writes nothing; invariant: One contentFingerprint maps to at most one candidate id.",
+            "UT: [Contract] @verifies C008 — precondition: The JSON ledger is unchanged; postcondition: render produces byte-identical Markdown across runs; invariant: Markdown is a pure function of JSON and is never hand-edited.",
+            "UT: [Contract] @verifies C009 — precondition: The ledger holds more candidates than the Markdown display limit; postcondition: JSON contains all candidates while Markdown shows the limit plus and N more; invariant: Capping never deletes records from JSON.",
+            "UT: [Contract] @verifies C010 — precondition: The process is interrupted after writing a temp file but before rename; postcondition: the original ledger remains parseable and unchanged; invariant: A partial write never replaces a valid ledger.",
+            "UT: [Contract] @verifies C011 — precondition: A validation or environment gate fails; postcondition: the command prints ERROR code, Cause, Artifact, Field, Action, and Verify, then exits 1; invariant: No gate ends with a bare message that lacks an Action.",
+            "UT: [Contract] @verifies C012 — precondition: The ledger is saved; postcondition: keys are emitted in a fixed order and the file ends with one trailing newline; invariant: Re-saving an unchanged ledger produces byte-identical JSON.",
+            "UT: [Contract] @verifies C013 — precondition: criteria.js and the command document disagree on a gate, category, exclusion, or version; postcondition: the parity test fails and names the missing id; invariant: The command document and criteria.js share one taxonomy version.",
+            "UT: [Contract] @verifies C014 — precondition: README.md omits the new command or the ledger filenames; postcondition: the README update names /pickup-conver-update-candidates, CONVER-UPDATE-CANDIDATES.json, CONVER-UPDATE-CANDIDATES.md, and criteriaVersion 1.0.0; invariant: Every shipped command appears in README.md.",
+            "UT: [Contract] @verifies C015 — precondition: The command document contains Japanese text, TODO/TBD placeholders, or filler prose; postcondition: the doc-style test fails and reports the offending token or line; invariant: Every command document is English-only, telegraphic, and information-complete.",
+            "UT: [Acceptance] [Happy path] On a project with a configured upstream and one modified file under `.claude`, the command runs `scan`, the AI judges the hunk as qualifying, and `create` writes a schema-valid CONVER-UPDATE-CANDIDATES.json containing exactly one CUC candidate with all five S-R-G-R-V elements plus a rendered CONVER-UPDATE-CANDIDATES.md at the workspace root.\n[Happy path detail] A second run with the same hunk and the same normalized patch reports `skipped:duplicate` and changes neither file.",
+            "UT: [Acceptance] [Error case] With no upstream configured, `scan` exits 1 with ERROR:upstream-not-configured and creates no ledger files.\n[Error case detail] With a candidate missing `symptom`, `create` exits 1, names the missing field, prints Cause, Artifact, Field, Action, and Verify, and leaves an existing ledger byte-identical.\n[Error case detail] With `location.file` escaping the claudeDir prefix, `create` exits 1 and writes nothing.",
+            "UT: [Acceptance] [Edge case] With no diff under `.claude`, `scan` exits 0 with `skipped:no-changes` and creates no ledger files.\n[Edge case detail] A change that fails a value or exclusion criterion is echoed to stdout with its exclusion code and never appears in JSON.\n[Edge case detail] A ledger larger than DISPLAY_LIMIT keeps every candidate in JSON while the Markdown ends with the explicit `…and N more candidates` remainder.",
+            "UT: [Contract] @verifies C001 location.hunkHeader, location.lineStart, and location.lineEnd are required and validated.",
+            "UT: [Contract] @verifies C004 evidence.upstreamRef, upstreamCommit, diffStat, extractCommand, and observedAt are required for a reproducible candidate.",
+            "UT: [Contract] @verifies C012 loadLedger rejects an unsupported schemaVersion with ERROR:ledger-unsupported-schema.",
+            "UT: [Contract] @verifies C008 a patch containing a backtick run is rendered inside a longer fence."
+          ],
+          "testIntegration": [
+            "IT: [Integration point] scan, create, and render share one store: a temp git repo with an upstream branch and a modified .claude file feeds create, which writes schema-valid JSON and Markdown at the workspace root.",
+            "IT: [Verification] running the end-to-end command twice with the same change yields one candidate because contentFingerprint dedup returns skipped:duplicate.",
+            "IT: [Verification] delete then render leaves the Markdown consistent with the remaining JSON with no orphan sections.",
+            "IT: [Prerequisites] tests create temporary git repositories with a configured upstream; no network access is required.",
+            "IT: [Related tickets] none; this ticket introduces the mechanism and does not depend on other tickets."
+          ],
+          "default_files": [
+            ".claude/commands/pickup-conver-update-candidates.md",
+            ".claude/scripts/pickup-conver-update-candidates/criteria.js",
+            ".claude/scripts/pickup-conver-update-candidates/schema.js",
+            ".claude/scripts/pickup-conver-update-candidates/store.js",
+            ".claude/scripts/pickup-conver-update-candidates/scan.js",
+            ".claude/scripts/pickup-conver-update-candidates/render.js",
+            ".claude/scripts/pickup-conver-update-candidates/cli.js",
+            "tests/pickup-conver-update-candidates/fixtures.cjs",
+            "tests/pickup-conver-update-candidates/criteria.test.cjs",
+            "tests/pickup-conver-update-candidates/schema.test.cjs",
+            "tests/pickup-conver-update-candidates/store.test.cjs",
+            "tests/pickup-conver-update-candidates/scan.test.cjs",
+            "tests/pickup-conver-update-candidates/render.test.cjs",
+            "tests/pickup-conver-update-candidates/crud.test.cjs",
+            "tests/pickup-conver-update-candidates/command-doc.test.cjs",
+            "README.md"
+          ],
+          "acceptanceCriteria": [
+            "[Happy path] On a project with a configured upstream and one modified file under `.claude`, the command runs `scan`, the AI judges the hunk as qualifying, and `create` writes a schema-valid CONVER-UPDATE-CANDIDATES.json containing exactly one CUC candidate with all five S-R-G-R-V elements plus a rendered CONVER-UPDATE-CANDIDATES.md at the workspace root.\n[Happy path detail] A second run with the same hunk and the same normalized patch reports `skipped:duplicate` and changes neither file.",
+            "[Error case] With no upstream configured, `scan` exits 1 with ERROR:upstream-not-configured and creates no ledger files.\n[Error case detail] With a candidate missing `symptom`, `create` exits 1, names the missing field, prints Cause, Artifact, Field, Action, and Verify, and leaves an existing ledger byte-identical.\n[Error case detail] With `location.file` escaping the claudeDir prefix, `create` exits 1 and writes nothing.",
+            "[Edge case] With no diff under `.claude`, `scan` exits 0 with `skipped:no-changes` and creates no ledger files.\n[Edge case detail] A change that fails a value or exclusion criterion is echoed to stdout with its exclusion code and never appears in JSON.\n[Edge case detail] A ledger larger than DISPLAY_LIMIT keeps every candidate in JSON while the Markdown ends with the explicit `…and N more candidates` remainder."
+          ],
+          "contracts": [
+            {
+              "id": "C001",
+              "sourceEdge": "command procedure -> create",
+              "precondition": "A candidate location.file resolves outside the claudeDir prefix",
+              "postcondition": "create rejects the record with ACTION: restrict the change to CLAUDE_DIR and writes nothing",
+              "invariant": "No persisted candidate path escapes the claudeDir prefix"
+            },
+            {
+              "id": "C002",
+              "sourceEdge": "scan -> early exit",
+              "precondition": "The upstream diff stat for claudeDir is empty and no untracked file exists under claudeDir",
+              "postcondition": "scan exits 0 with skipped:no-changes and writes neither JSON nor Markdown",
+              "invariant": "No candidates file is created or modified when there is no diff and no untracked file"
+            },
+            {
+              "id": "C003",
+              "sourceEdge": "scan -> upstream resolution",
+              "precondition": "No upstream branch is configured for the current branch",
+              "postcondition": "scan exits non-zero with ERROR:upstream-not-configured and writes nothing",
+              "invariant": "The scanner never guesses a baseline ref"
+            },
+            {
+              "id": "C004",
+              "sourceEdge": "create -> completeness gate",
+              "precondition": "A candidate record omits symptom, remedy, scope, risk, or verification",
+              "postcondition": "create rejects it, names each missing field, and writes nothing",
+              "invariant": "Every persisted candidate carries the five S-R-G-R-V elements"
+            },
+            {
+              "id": "C005",
+              "sourceEdge": "create -> generalization gate",
+              "precondition": "generalization is adapt and adaptationPlan is empty",
+              "postcondition": "create rejects the record with ACTION: describe how project-specific residue will be removed",
+              "invariant": "No adapt candidate exists without a concrete adaptation plan"
+            },
+            {
+              "id": "C006",
+              "sourceEdge": "create -> enum validation",
+              "precondition": "A record uses a criterion, status, impact, confidence, or riskLevel outside the allowed enum",
+              "postcondition": "the validator rejects it and prints the allowed values",
+              "invariant": "Every persisted enum value belongs to the criteriaVersion taxonomy"
+            },
+            {
+              "id": "C007",
+              "sourceEdge": "create -> identity",
+              "precondition": "A create request carries a contentFingerprint already present in the ledger",
+              "postcondition": "create exits 0 with skipped:duplicate and writes nothing",
+              "invariant": "One contentFingerprint maps to at most one candidate id"
+            },
+            {
+              "id": "C008",
+              "sourceEdge": "render -> JSON",
+              "precondition": "The JSON ledger is unchanged",
+              "postcondition": "render produces byte-identical Markdown across runs",
+              "invariant": "Markdown is a pure function of JSON and is never hand-edited"
+            },
+            {
+              "id": "C009",
+              "sourceEdge": "render -> display cap",
+              "precondition": "The ledger holds more candidates than the Markdown display limit",
+              "postcondition": "JSON contains all candidates while Markdown shows the limit plus and N more",
+              "invariant": "Capping never deletes records from JSON"
+            },
+            {
+              "id": "C010",
+              "sourceEdge": "store -> atomic write",
+              "precondition": "The process is interrupted after writing a temp file but before rename",
+              "postcondition": "the original ledger remains parseable and unchanged",
+              "invariant": "A partial write never replaces a valid ledger"
+            },
+            {
+              "id": "C011",
+              "sourceEdge": "validation -> repair finding",
+              "precondition": "A validation or environment gate fails",
+              "postcondition": "the command prints ERROR code, Cause, Artifact, Field, Action, and Verify, then exits 1",
+              "invariant": "No gate ends with a bare message that lacks an Action"
+            },
+            {
+              "id": "C012",
+              "sourceEdge": "store -> canonical JSON",
+              "precondition": "The ledger is saved",
+              "postcondition": "keys are emitted in a fixed order and the file ends with one trailing newline",
+              "invariant": "Re-saving an unchanged ledger produces byte-identical JSON"
+            },
+            {
+              "id": "C013",
+              "sourceEdge": "command document -> criteria module",
+              "precondition": "criteria.js and the command document disagree on a gate, category, exclusion, or version",
+              "postcondition": "the parity test fails and names the missing id",
+              "invariant": "The command document and criteria.js share one taxonomy version"
+            },
+            {
+              "id": "C014",
+              "sourceEdge": "README -> command catalog",
+              "precondition": "README.md omits the new command or the ledger filenames",
+              "postcondition": "the README update names /pickup-conver-update-candidates, CONVER-UPDATE-CANDIDATES.json, CONVER-UPDATE-CANDIDATES.md, and criteriaVersion 1.0.0",
+              "invariant": "Every shipped command appears in README.md"
+            },
+            {
+              "id": "C015",
+              "sourceEdge": "command document -> style",
+              "precondition": "The command document contains Japanese text, TODO/TBD placeholders, or filler prose",
+              "postcondition": "the doc-style test fails and reports the offending token or line",
+              "invariant": "Every command document is English-only, telegraphic, and information-complete"
+            }
+          ],
+          "notes": "- [Implementation steps] 1) criteria.js taxonomy; 2) schema.js validation and fingerprint; 3) store.js atomic load and save; 4) scan.js git scoping; 5) render.js deterministic Markdown; 6) cli.js subcommands; 7) command document; 8) README.md; 9) Red tests first per module, then Green implementation, then Refactor.\n- [Risks] `@{u}` may be unset in some projects, which is handled fail-closed; hunk-level judgment can miss a cross-hunk improvement; exact fingerprint matching can miss equivalent changes across projects.\n- [Caveats] The AI, not the script, decides generalizability; the script enforces scope, completeness, enums, dedup, and rendering. Excluded changes are echoed to stdout and never persisted. Uncommitted changes are included deliberately.\n- [Open items] Whether to externalize the taxonomy to `.claude/config/conver-update-criteria.json`; cross-project merge by normalized fingerprint.\n- [Future improvements] A conver-side absorb command that reads the ledger, groups by criterion, and opens tickets; criteria version negotiation between project and upstream.\n- [Law] not applicable: the ticket touches no crates/** unit with an interface role and declares no interface scope.\n- [Style] command markdown is English-only, telegraphic, high-density, non-redundant, information-complete, minimal characters; README.md is updated in the same change.\nImplementation summary (PX-457):\n- Files: 6 scripts, 1 command document, 8 test files (fixtures + 7 suites), README.md, .claude/rules/node.md.\n- Validation: node --test tests/pickup-conver-update-candidates/*.test.cjs -> 59/59 pass; node --check on every new source and test file; run-quality-checks -> 0 issues; tests/check-conventions.mjs -> pass.\n- Pre-existing unrelated finding: tests/check-path-emission.mjs reports spec-rename/migrate.mjs:243 (untouched by this ticket); no pickup-conver file appears in that report.\n- Assumption: CLAUDE_DIR resolves to the harness of the tool invoking the command (the development package harness was used for this ticket).\n- No stubs, no new dependencies, no changes outside the ticket scope except the required node.md convention row.\nReview report (PX-457):\n- Static quality check: passed\n- Translatability: buildFinding and tempPath renamed; no generic variables or debug output\n- Tests: 63/63 pass; the review added four tests for the fixes below\n- Contract gates: verify-final-contracts and validate-ticket-targets pass\n- Issues found and fixes applied: (1) location now requires hunkHeader/lineStart/lineEnd; (2) evidence now requires upstreamRef/upstreamCommit/diffStat/extractCommand/observedAt; (3) loadLedger rejects an unsupported schemaVersion; (4) the Markdown fence grows past any backtick run\n- Pre-existing annotation gap: install.js:154/249 belong to uncommitted README-install work that predates PX-457; they are intentionally not annotated for PX-457 because that would record false provenance\n- Pre-existing unrelated failure: tests/check-path-emission.mjs reports spec-rename/migrate.mjs:243; no pickup-conver file appears in that report",
+          "invariants": "- [Normal condition] A run with a configured upstream and at least one qualifying hunk produces CONVER-UPDATE-CANDIDATES.json and CONVER-UPDATE-CANDIDATES.md at the workspace root, with unique CUC ids and every required field populated.\n- [Error invariant] Any schema, scope, enum, or environment failure writes neither file and leaves an existing ledger byte-identical.\n- [Internal state invariant] JSON is the single source of truth; Markdown is regenerated from it and never edited independently.\n- [Boundary invariant] Only change locations under the claudeDir prefix enter the ledger; a path that escapes the prefix is rejected even when it is syntactically relative.",
+          "testExceptions": [],
+          "instrumentation": "- [Logging] stderr lines are prefixed `[pickup-conver-update-candidates]`; stdout carries the Markdown report or exactly one JSON line with `--json`.\n- [Metrics] every run reports scanned file count, qualifying candidate count, duplicate count, and excluded count.\n- [Error tracking] every failure is a repair finding with code, cause, artifact, field, action, and verify; expected failures never print a stack trace.\n- [Health check] `scan` exits 0 on success and on `skipped:no-changes`; exit 1 is reserved for a named failure.\nStatic quality check: passed (0 issues)\nTranslatability: no issues after renaming buildFinding and tempPath\nTests: 63/63 passed\nConventions: tests/check-conventions.mjs pass\nEnd-to-end CLI smoke: scan, create, duplicate, and list verified in a temporary git repository",
+          "investigation": "- `Tickets.json` stores `phases[].tickets[]`; PX tickets live in phase -1. PX-457 did not exist before this ticket, and `show-ticket-context.js` reports the spec path as `specs/PX-457.md`.\n- `.claude/scripts/tickets/malfeasance-create.js`, `malfeasance-update.js`, and `.claude/scripts/lib/malfeasance-utils.js` establish the CRUD shape: one purpose per script, load and save validate before write, paths are project-root-relative for portability, and stdout is one JSON line. This ticket keeps the shape and adds atomic temp+rename plus a Markdown renderer.\n- `.claude/scripts/lib/repair-finding.js` (PX-365) defines `createFinding` with required severity, code, layer, artifact, cause, action, verify, and route; `assertConcreteAction` rejects generic verbs and requires a tool, path, or flag. Reusing it makes every gate failure actionable, which is the user instruction that gates must be repair loops rather than blockers.\n- `.claude/scripts/explain-seed/lib/render.mjs` and `lib/frame.mjs` establish the sidecar rule: JSON keeps every record, Markdown trims with an explicit `…and N more` remainder. This ticket applies the same rule with `DISPLAY_LIMIT`.\n- `.claude/commands/consolidate-stubs.md` shows the mandatory Path anchor block, whose printed value is `$(git rev-parse --show-toplevel)/.claude`; the new command uses the identical anchor and records CLAUDE_DIR once.\n- `.claude/package.json` declares `type: commonjs`, so new scripts under `.claude/scripts` are CommonJS. The root `package.json` declares `type: module`, which is why tests under `tests/` use the explicit `.test.cjs` extension.\n- `tests/run-all-surfaces.mjs` discovers `tests/**/*.test.cjs` and runs them through `node --test` with explicit file arguments; git fixtures in tests use `execFileSync('git', ['init'], { cwd })` with a local identity, as in `tests/conver/backfill-history.test.mjs`.\n- `install.js` mirrors the `.claude` tree with rsync rather than an explicit file manifest, and `installReadme` copies the repository README into each installed `.claude`; the README is therefore the single documentation authority and one edit reaches every project.\n- `README.md` holds the Japanese command catalog under `## コマンド一覧`, with per-command subsections grouped by loop. The new command is a harness-evolution entry, not an implementation-loop entry, so it gets its own subsection.\n- `git diff @{u}` compares the worktree with the upstream commit and therefore includes uncommitted changes, which the user explicitly confirmed as in scope. `git diff --stat @{u} -- <claudeDir>` is the cheap early-exit probe.\n- `Malfeasance.json` has 0 open records; `find-all-stubs.js` and `scan-incomplete-implementations.js` report no marker in any plan-target path (the target files do not exist yet).",
+          "boyScoutPlan": "- Extract `scanClaudeDir`, `validateCandidate`, `computeContentFingerprint`, `renderLedger`, `allocateId`, and `atomicSave` as verb phrases with one responsibility each.\n- Name domain nouns `Candidate`, `Criteria`, `Ledger`, `Hunk`, `Exclusion`; forbid generic names such as `data`, `info`, and `tmp`.\n- Move every enum and limit into `criteria.js` constants; `cli.js` and `render.js` never repeat string literals.\n- Never swallow an error: every filesystem and git failure becomes a repair finding with code, cause, action, and verify; no bare catch and no stack trace for expected failures.\n- Never trust `JSON.parse` blindly: `loadLedger` returns a named error and leaves the original file untouched.\n- Replace string prefix checks with `path.resolve` plus a prefix containment check, and use `realpath` when the target exists, so `../` traversal cannot escape claudeDir.\n- Keep Markdown a pure function of the ledger; the only timestamp is `generatedAt` stored in JSON.\n- Reuse `path-utils.js` and `repair-finding.js` as-is; if a defect is found in either, fix it with a test in the same change.\n- Write the command document as telegraphic English: every line is an instruction or a fact; no restatement; no Japanese; no placeholders.",
+          "created_at": "2026-11-27",
+          "updated_at": "2026-11-27",
+          "targetStubs": "verified_empty",
+          "targetCrimes": "verified_empty",
+          "made_at": "2026-11-27T05:53:43.847Z",
+          "planTestCode": [
+            "UT: C001 — location containment\n```js\nconst path = require('node:path');\nconst { validateCandidate } = require('../../.claude/scripts/pickup-conver-update-candidates/schema.js');\nconst candidate = { ...baseCandidate, location: { file: '.claude/../outside.js', hunkHeader: '@@ -1 +1 @@', lineStart: 1, lineEnd: 1 } };\nconst result = validateCandidate(candidate, { workspace, claudeDir: path.join(workspace, '.claude') });\nassert.equal(result.ok, false);\nassert.equal(result.findings[0].field, 'location.file');\nassert.ok(result.findings[0].action.includes('CLAUDE_DIR'));\nassert.equal(fs.existsSync(ledgerPath), false);\n```",
+            "UT: C002 — empty diff and no untracked file early exit\n```js\nconst { scanClaudeDir } = require('../../.claude/scripts/pickup-conver-update-candidates/scan.js');\nconst claudeDir = path.join(workspace, '.claude');\nconst result = scanClaudeDir({ workspace, claudeDir });\nassert.deepEqual(result, { ok: true, status: 'skipped:no-changes' });\nassert.equal(fs.existsSync(path.join(workspace, 'CONVER-UPDATE-CANDIDATES.json')), false);\nassert.equal(fs.existsSync(path.join(workspace, 'CONVER-UPDATE-CANDIDATES.md')), false);\n```",
+            "UT: C003 — missing upstream fails closed\n```js\nconst { scanClaudeDir } = require('../../.claude/scripts/pickup-conver-update-candidates/scan.js');\nconst result = scanClaudeDir({ workspace, claudeDir: path.join(workspace, '.claude') });\nassert.equal(result.ok, false);\nassert.equal(result.code, 'ERROR:upstream-not-configured');\nassert.equal(fs.existsSync(path.join(workspace, 'CONVER-UPDATE-CANDIDATES.json')), false);\n```",
+            "UT: C004 — S-R-G-R-V completeness\n```js\nconst { validateCandidate } = require('../../.claude/scripts/pickup-conver-update-candidates/schema.js');\nconst { symptom, ...incomplete } = baseCandidate;\nconst result = validateCandidate(incomplete, { workspace, claudeDir });\nassert.equal(result.ok, false);\nassert.deepEqual(result.findings.map((finding) => finding.field), ['symptom']);\nassert.ok(result.findings[0].action.includes('symptom'));\nassert.equal(fs.existsSync(ledgerPath), false);\n```",
+            "UT: C005 — adapt requires an adaptation plan\n```js\nconst { validateCandidate } = require('../../.claude/scripts/pickup-conver-update-candidates/schema.js');\nconst result = validateCandidate({ ...baseCandidate, generalization: 'adapt', adaptationPlan: '' }, { workspace, claudeDir });\nassert.equal(result.ok, false);\nassert.equal(result.findings[0].field, 'adaptationPlan');\nassert.ok(result.findings[0].action.includes('project-specific residue'));\nassert.equal(fs.existsSync(ledgerPath), false);\n```",
+            "UT: C006 — enum rejection prints allowed values\n```js\nconst { validateCandidate } = require('../../.claude/scripts/pickup-conver-update-candidates/schema.js');\nconst result = validateCandidate({ ...baseCandidate, primaryCriterion: 'speed', status: 'rejected' }, { workspace, claudeDir });\nassert.equal(result.ok, false);\nassert.deepEqual(result.findings.map((finding) => finding.field), ['primaryCriterion', 'status']);\nconst causes = result.findings.map((finding) => finding.cause).join(' ');\nassert.ok(causes.includes('correctness'));\nassert.ok(causes.includes('candidate'));\n```",
+            "UT: C007 — fingerprint dedup and recomputation\n```js\nconst { createCandidate } = require('../../.claude/scripts/pickup-conver-update-candidates/cli.js');\nassert.equal(createCandidate({ workspace, candidate: baseCandidate }).status, 'created');\nconst before = fs.readFileSync(ledgerPath, 'utf8');\nassert.equal(createCandidate({ workspace, candidate: baseCandidate }).status, 'skipped:duplicate');\nassert.equal(fs.readFileSync(ledgerPath, 'utf8'), before);\nconst spoofed = { ...baseCandidate, evidence: { ...baseCandidate.evidence, contentFingerprint: 'sha256:deadbeef' } };\nassert.equal(createCandidate({ workspace: secondWorkspace, candidate: spoofed }).status, 'created');\nconst stored = loadLedger(secondWorkspace).ledger.candidates[0];\nassert.notEqual(stored.evidence.contentFingerprint, 'sha256:deadbeef');\nassert.equal(stored.evidence.contentFingerprint.startsWith('sha256:'), true);\nassert.equal(stored.evidence.contentFingerprint.length, 71);\n```",
+            "UT: C008 — deterministic Markdown\n```js\nconst { renderMarkdown } = require('../../.claude/scripts/pickup-conver-update-candidates/render.js');\nconst first = renderMarkdown(ledger);\nconst second = renderMarkdown(ledger);\nassert.equal(first, second);\nassert.ok(first.includes('CONVER-UPDATE-CANDIDATES.json'));\nassert.ok(first.includes('criteriaVersion: 1.0.0'));\n```",
+            "UT: C009 — JSON complete, Markdown capped\n```js\nconst { renderMarkdown } = require('../../.claude/scripts/pickup-conver-update-candidates/render.js');\nconst ledger = { ...emptyLedger({ workspace, claudeDir, upstreamRef }), candidates: makeCandidates(55) };\nconst markdown = renderMarkdown(ledger);\nassert.equal(ledger.candidates.length, 55);\nassert.equal((markdown.match(/^### CUC-/gm) || []).length, 50);\nassert.ok(markdown.includes('…and 5 more candidates'));\n```",
+            "UT: C010 — atomic write preserves the original\n```js\nconst { saveLedger } = require('../../.claude/scripts/pickup-conver-update-candidates/store.js');\nconst original = fs.readFileSync(ledgerPath, 'utf8');\nconst crashed = saveLedger(workspace, ledger, { renameImpl: () => { throw new Error('crash before rename'); } });\nassert.equal(crashed.ok, false);\nassert.equal(fs.readFileSync(ledgerPath, 'utf8'), original);\nassert.doesNotThrow(() => JSON.parse(fs.readFileSync(ledgerPath, 'utf8')));\n```",
+            "UT: C011 — every gate failure is a repair finding\n```js\nconst { spawnSync } = require('node:child_process');\nconst run = spawnSync(process.execPath, [cliPath, 'create', '--workspace', workspace, '--candidate', badCandidatePath], { cwd: workspace, encoding: 'utf8' });\nassert.equal(run.status, 1);\nfor (const label of ['[ERROR]', 'Cause:', 'Artifact:', 'Field:', 'Action:', 'Verify:']) assert.ok(run.stderr.includes(label), label);\nassert.equal(run.stderr.includes('    at '), false);\n```",
+            "UT: C012 — canonical JSON re-save is byte-identical\n```js\nconst { loadLedger, saveLedger } = require('../../.claude/scripts/pickup-conver-update-candidates/store.js');\nconst before = fs.readFileSync(ledgerPath, 'utf8');\nassert.equal(saveLedger(workspace, loadLedger(workspace).ledger).ok, true);\nconst after = fs.readFileSync(ledgerPath, 'utf8');\nassert.equal(after, before);\nassert.equal(after.endsWith('\\n'), true);\nassert.deepEqual(Object.keys(JSON.parse(after)), ['schemaVersion', 'criteriaVersion', 'workspace', 'claudeDir', 'upstreamRef', 'generatedAt', 'candidates']);\n```",
+            "UT: C013 — command document and criteria module share one taxonomy\n```js\nconst criteria = require('../../.claude/scripts/pickup-conver-update-candidates/criteria.js');\nconst doc = fs.readFileSync(path.join(repoRoot, '.claude/commands/pickup-conver-update-candidates.md'), 'utf8');\nfor (const gate of criteria.ADMISSION_GATES.map((entry) => entry.id)) assert.ok(doc.includes(gate), gate);\nfor (const category of criteria.VALUE_CATEGORIES) assert.ok(doc.includes(category), category);\nfor (const code of criteria.EXCLUSION_CODES) assert.ok(doc.includes(code), code);\nassert.ok(doc.includes(criteria.CRITERIA_VERSION));\n```",
+            "UT: C014 — README documents the command and the ledger\n```js\nconst readme = fs.readFileSync(path.join(repoRoot, 'README.md'), 'utf8');\nassert.ok(readme.includes('/pickup-conver-update-candidates'));\nassert.ok(readme.includes('CONVER-UPDATE-CANDIDATES.json'));\nassert.ok(readme.includes('CONVER-UPDATE-CANDIDATES.md'));\nassert.ok(readme.includes('criteriaVersion 1.0.0'));\n```",
+            "UT: C015 — command document style\n```js\nconst doc = fs.readFileSync(path.join(repoRoot, '.claude/commands/pickup-conver-update-candidates.md'), 'utf8');\nassert.equal(/[ぁ-んァ-ン一-龥]/.test(doc), false);\nassert.equal(doc.includes('TODO'), false);\nassert.equal(doc.includes('TBD'), false);\nassert.equal(doc.toLowerCase().includes('please note that'), false);\nassert.equal(doc.includes('NON-INTERACTIVE'), true);\nassert.equal(doc.split('\\n').length <= 120, true);\n```",
+            "UT: scan — untracked file is an added change\n```js\nconst { scanClaudeDir } = require('../../.claude/scripts/pickup-conver-update-candidates/scan.js');\nfs.mkdirSync(path.join(workspace, '.claude/scripts'), { recursive: true });\nfs.writeFileSync(path.join(workspace, '.claude/scripts/new.js'), 'module.exports = 1;\\n');\nconst result = scanClaudeDir({ workspace, claudeDir: path.join(workspace, '.claude') });\nassert.equal(result.ok, true);\nconst added = result.files.find((entry) => entry.file === '.claude/scripts/new.js');\nassert.ok(added);\nassert.equal(added.changeType, 'added');\nassert.ok(added.diff.includes('+module.exports = 1;'));\n```"
+          ],
+          "planned_at": "2026-11-27T05:56:36.027Z",
+          "startedAt": "2026-11-27",
+          "changes": [
+            {
+              "before": "No command captured generalizable .claude changes.",
+              "after": "Added .claude/commands/pickup-conver-update-candidates.md (78 lines, English-only telegraphic, NON-INTERACTIVE, path anchor, criteriaVersion 1.0.0).",
+              "description": "New command."
+            },
+            {
+              "before": "No CRUD implementation existed.",
+              "after": "Added criteria.js, schema.js, store.js, scan.js, render.js, cli.js under .claude/scripts/pickup-conver-update-candidates/.",
+              "description": "Strict-schema CRUD with atomic writes, scoped git scan, deterministic Markdown, and repair findings."
+            },
+            {
+              "before": "No tests existed for the mechanism.",
+              "after": "Added fixtures.cjs and 7 node:test suites under tests/pickup-conver-update-candidates/.",
+              "description": "59 tests cover C001-C015 and the untracked-file path."
+            },
+            {
+              "before": "README had no command entry.",
+              "after": "Added the harness-evolution section documenting the command, both ledger files, criteriaVersion 1.0.0, and the exclusion policy.",
+              "description": "README update."
+            },
+            {
+              "before": ".claude/rules/node.md module table omitted the new directory.",
+              "after": "Added pickup-conver-update-candidates | commonjs to the table.",
+              "description": "Convention table update so check-conventions passes."
+            },
+            {
+              "before": "Location accepted a file without hunk coordinates; evidence accepted only a patch; an unknown schemaVersion loaded silently; a patch containing backticks broke the Markdown fence.",
+              "after": "schema validates hunkHeader/lineStart/lineEnd and all reproducible evidence fields; store rejects an unsupported schemaVersion; render chooses a fence longer than any backtick run.",
+              "description": "Review fixes with four new tests (63 total)."
+            }
+          ],
+          "done_at": "2026-11-27T06:04:11.243Z",
+          "rfcDiscrepancies": [],
+          "completedAt": "2026-11-27",
+          "reviewed_at": "2026-11-27T06:07:00.770Z"
         }
       ]
     },
