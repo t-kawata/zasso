@@ -1,3 +1,4 @@
+// [::TICKET::] PX-455 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-455 --for-spec --no-implementation-order`.
 // command-history.test.ts — FIFO history, repetition detection and escalation.
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
@@ -13,6 +14,7 @@ import {
   ESCALATION_MESSAGES,
   EXPLAIN_OVERRIDE,
   GRILL_OVERRIDE,
+  DRILL_OVERRIDE,
   NON_INTERACTIVE_OVERRIDE,
 } from "./command-history.js";
 import type { CommandExecution } from "./command-history.js";
@@ -138,5 +140,40 @@ describe("prompt overrides", () => {
   it("C006: educe carries only the fixed-argument override", () => {
     assert.ok(EDUCE_FIXED_SPEC_OVERRIDE.includes("SYSTEM-DESIGN.md"));
     assert.strictEqual(EDUCE_FIXED_SPEC_OVERRIDE.includes(NON_INTERACTIVE_OVERRIDE), false);
+  });
+});
+
+describe("DRILL_OVERRIDE", () => {
+  it("starts with the CRITICAL non-interactive header", () => {
+    assert.ok(DRILL_OVERRIDE.startsWith("# CRITICAL — NON-INTERACTIVE, END-TO-END EXECUTION"));
+  });
+
+  it("carries the three telegraphic clauses", () => {
+    assert.ok(DRILL_OVERRIDE.includes("Settle every direction question yourself; never bundle one to a human."));
+    assert.ok(DRILL_OVERRIDE.includes("Anything causing, or potentially causing, cross-package omission/contradiction/deficiency/danger: complete design, authoring, update in this drill, spanning packages."));
+    assert.ok(DRILL_OVERRIDE.includes("Directory contradiction: no dangerous mechanical fix; judge; fix across packages."));
+  });
+
+  it("keeps each drill clause ASCII while the shared CRITICAL header keeps its em dash", () => {
+    const clauses = [
+      "Settle every direction question yourself; never bundle one to a human.",
+      "Anything causing, or potentially causing, cross-package omission/contradiction/deficiency/danger: complete design, authoring, update in this drill, spanning packages.",
+      "Directory contradiction: no dangerous mechanical fix; judge; fix across packages.",
+    ];
+    for (const clause of clauses) assert.strictEqual(/^[\x00-\x7F]*$/.test(clause), true);
+    assert.strictEqual(/[^\x00-\x7F]/.test(DRILL_OVERRIDE.replace("—", "-")), false);
+  });
+
+  it("is appended after the shared directives and never replaces them", () => {
+    const prompt = composePrompt("/drill-rfc-down", 0, DRILL_OVERRIDE);
+    const overrideIndex = prompt.indexOf(DRILL_OVERRIDE);
+    assert.ok(prompt.startsWith("/drill-rfc-down\n\n"));
+    assert.ok(prompt.indexOf(CROSS_PACKAGE_DIRECTIVE) < overrideIndex);
+    assert.ok(prompt.indexOf(COMPLETION_REPORT_DIRECTIVE) < overrideIndex);
+  });
+
+  it("keeps the default composition byte-identical when no override is passed", () => {
+    const prompt = composePrompt("/make-ticket P0-1", 0);
+    assert.strictEqual(prompt, "/make-ticket P0-1\n\n" + CROSS_PACKAGE_DIRECTIVE + "\n" + COMPLETION_REPORT_DIRECTIVE);
   });
 });

@@ -50,7 +50,7 @@ export interface CliOptions {
   tasks?: string;
 }
 
-// [::TICKET::] PX-145, PX-146, PX-151, PX-403, PX-404, PX-413, PX-454 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-145|PX-146|PX-151|PX-403|PX-404|PX-413|PX-454) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-145, PX-146, PX-151, PX-403, PX-404, PX-413, PX-454, PX-455 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-145|PX-146|PX-151|PX-403|PX-404|PX-413|PX-454|PX-455) --for-spec --no-implementation-order`.
 function showUsage(): void {
   process.stdout.write(`conver.js ${VERSION} — ACP-based ticket processing pipeline (provider-agnostic)
 
@@ -75,7 +75,7 @@ Options:
   -n, --no-find <0|1>        Skip find after all done; consolidate still runs (default: 0)
   -T, --tasks <stages>       Contiguous stage slice to run (default: make,plan,start,review,resolve,consolidate,find)
                              Stages: workspacify,educe,explain,grill,smooth,graphify,boundify,split,make,plan,
-                             start,review,resolve,consolidate,find,crystalize; repeatable stages accept :N
+                             start,review,resolve,consolidate,find,crystalize,drill; repeatable stages accept :N
   --max-find-rounds <num>    Find executions allowed per package before stopping (default: 5)
   --no-dashboard             Disable the fixed progress header
   --dashboard-interval <sec> Header poll interval in seconds (default: 5)

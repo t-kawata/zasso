@@ -1,9 +1,10 @@
+// [::TICKET::] PX-455 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-455 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-454 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-454 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-454 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-454 --for-spec --no-implementation-order`.
 // stage-plan.test.ts — the -T grammar, contiguous-slice validation and stage metadata.
 //
 // The canonical order is the pipeline's own order: workspacify, educe, explain,
-// grill, smooth, graphify, boundify, split, the implementation group, crystalize.
+// grill, smooth, graphify, boundify, split, the implementation group, crystalize, drill.
 // A selected plan must be a contiguous slice of it; a gap or a reversal is a
 // startup error, never a silently skipped stage.
 import { describe, it } from "node:test";
@@ -25,13 +26,14 @@ const CANONICAL_NAMES = CANONICAL_STAGE_DEFINITIONS.map((definition) => definiti
 describe("parseStagePlan", () => {
   it("C001: parses the full canonical schema and keeps the declared repeat counts", () => {
     const plan = parseStagePlan(
-      "workspacify,educe:2,explain,grill:3,smooth,graphify,boundify,split,make,plan,start,review,resolve,consolidate,find,crystalize:2",
+      "workspacify,educe:2,explain,grill:3,smooth,graphify,boundify,split,make,plan,start,review,resolve,consolidate,find,crystalize:2,drill",
     );
 
     assert.deepStrictEqual(plan.selections.map((selection) => selection.name), CANONICAL_NAMES);
     assert.strictEqual(plan.selections.find((selection) => selection.name === "educe")?.count, 2);
     assert.strictEqual(plan.selections.find((selection) => selection.name === "grill")?.count, 3);
     assert.strictEqual(plan.selections.find((selection) => selection.name === "crystalize")?.count, 2);
+    assert.strictEqual(plan.selections.find((selection) => selection.name === "drill")?.count, 1);
     assert.strictEqual(plan.selections.find((selection) => selection.name === "workspacify")?.count, 1);
     assert.strictEqual(plan.selections.find((selection) => selection.name === "make")?.count, 1);
   });
@@ -145,5 +147,58 @@ describe("stage metadata", () => {
     assert.strictEqual(stageForCommand("/consolidate-stubs"), "consolidate");
     assert.strictEqual(stageForCommand("/find-omissions"), "find");
     assert.strictEqual(stageForCommand("/unknown"), null);
+  });
+});
+
+// @verifies C001
+describe("drill stage", () => {
+  it("C001: drill is the last canonical stage and is not repeatable", () => {
+    const names = CANONICAL_STAGE_DEFINITIONS.map((definition) => definition.name);
+    assert.strictEqual(names[names.length - 1], "drill");
+    assert.strictEqual(names[names.length - 2], "crystalize");
+    assert.strictEqual(stageDefinition("drill").repeatable, false);
+    assert.strictEqual(stageDefinition("drill").scope, "package");
+    assert.deepStrictEqual(stageDefinition("drill").commands, ["/drill-rfc-down"]);
+    assert.strictEqual(stageForCommand("/drill-rfc-down"), "drill");
+  });
+
+  it("C001: accepts a contiguous slice that ends at drill", () => {
+    const plan = parseStagePlan("crystalize:2,drill");
+    assert.deepStrictEqual(plan.selections.map((selection) => selection.name), ["crystalize", "drill"]);
+    assert.strictEqual(plan.selections[0]?.count, 2);
+    assert.strictEqual(plan.selections[1]?.count, 1);
+  });
+
+  it("C001: refuses a count on drill", () => {
+    assert.throws(
+      () => parseStagePlan("drill:2"),
+      (error: unknown) => error instanceof StagePlanError && error.code === "COUNT_NOT_ALLOWED",
+    );
+  });
+
+  it("C001: refuses drill without crystalize", () => {
+    assert.throws(
+      () => parseStagePlan("drill"),
+      (error: unknown) => error instanceof StagePlanError && error.code === "DRILL_REQUIRES_CRYSTALIZE",
+    );
+  });
+
+  it("C001: keeps the order rules around drill", () => {
+    assert.throws(
+      () => parseStagePlan("drill,crystalize"),
+      (error: unknown) => error instanceof StagePlanError && error.code === "OUT_OF_ORDER",
+    );
+    assert.throws(
+      () => parseStagePlan("find,drill"),
+      (error: unknown) => error instanceof StagePlanError && error.code === "GAP",
+    );
+  });
+
+  it("C001: drill owes the existing package gate", () => {
+    assert.deepStrictEqual(resolveStageGate("drill"), {
+      requiresSystemDesign: false,
+      requiresTreeAndAllocate: false,
+      requiresExistingWorkspaceGate: true,
+    });
   });
 });

@@ -5,7 +5,7 @@
 // silently skipped stage. Everything in this module is pure: it reads no file and
 // opens no session, which is what makes the refusal deterministic.
 // [::TICKET::] PX-454 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-454 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-454 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-454 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-454, PX-455 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-454|PX-455) --for-spec --no-implementation-order`.
 export type StageName =
   | "workspacify"
   | "educe"
@@ -22,7 +22,8 @@ export type StageName =
   | "resolve"
   | "consolidate"
   | "find"
-  | "crystalize";
+  | "crystalize"
+  | "drill";
 
 // [::TICKET::] PX-454 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-454 --for-spec --no-implementation-order`.
 export type StageScope = "workspace" | "package";
@@ -46,14 +47,15 @@ export interface StagePlan {
   readonly selections: readonly StageSelection[];
 }
 
-// [::TICKET::] PX-454 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-454 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-454, PX-455 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-454|PX-455) --for-spec --no-implementation-order`.
 export type StagePlanErrorCode =
   | "UNKNOWN_STAGE"
   | "DUPLICATE_STAGE"
   | "GAP"
   | "OUT_OF_ORDER"
   | "COUNT_NOT_ALLOWED"
-  | "INVALID_COUNT";
+  | "INVALID_COUNT"
+  | "DRILL_REQUIRES_CRYSTALIZE";
 
 // [::TICKET::] PX-454 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-454 --for-spec --no-implementation-order`.
 export class StagePlanError extends Error {
@@ -87,6 +89,7 @@ export const CANONICAL_STAGE_DEFINITIONS: readonly StageDefinition[] = Object.fr
   { name: "consolidate", scope: "package", repeatable: false, commands: ["/consolidate-stubs"] },
   { name: "find", scope: "package", repeatable: false, commands: ["/find-omissions"] },
   { name: "crystalize", scope: "package", repeatable: true, commands: ["/crystalize-readme"] },
+  { name: "drill", scope: "package", repeatable: false, commands: ["/drill-rfc-down"] },
 ]);
 
 const DEFINITION_BY_NAME = new Map<StageName, StageDefinition>(
@@ -99,7 +102,7 @@ const STAGE_FOR_COMMAND = new Map<string, StageName>(
   ),
 );
 
-const IMPLEMENTATION_STAGES: readonly StageName[] = Object.freeze([
+export const IMPLEMENTATION_STAGES: readonly StageName[] = Object.freeze([
   "make",
   "plan",
   "start",
@@ -148,7 +151,7 @@ export function resolveStageGate(name: StageName): StageGate {
       requiresExistingWorkspaceGate: false,
     };
   }
-  if (IMPLEMENTATION_STAGES.includes(name) || name === "crystalize") {
+  if (IMPLEMENTATION_STAGES.includes(name) || name === "crystalize" || name === "drill") {
     return {
       requiresSystemDesign: false,
       requiresTreeAndAllocate: false,
@@ -242,6 +245,15 @@ export function parseStagePlan(raw: string | undefined): StagePlan {
 
   const names = selections.map((selection) => selection.name);
   assertContiguousSlice(names);
+  // The evolution door cannot run before the shipping door: drill reads the
+  // RESIDUE that crystalize leaves, so a plan that selects drill without
+  // crystalize would ask the scheduler to break its own barrier.
+  if (names.includes("drill") && !names.includes("crystalize")) {
+    throw new StagePlanError(
+      "DRILL_REQUIRES_CRYSTALIZE",
+      "-T selects drill without crystalize",
+    );
+  }
   return { selections };
 }
 

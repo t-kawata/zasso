@@ -45,8 +45,8 @@ flowchart TD
 | **適合ループ（第五層）** | 人間＋AI（Claude Code 上で実行） | `/workspacify-reverse` → `/workspacify-tree` → `/workspacify-allocate` → `workspacify-order`（実装順の表示・検査） → `/educe-sequences`（要求台帳） | 入力（空＋仕様書 / 既存実装）を4つのループが回る形へ適合させ、**4つのループをパッケージディレクトリごとに再実体化**する。全シーケンス・全オペレーションを台帳化し、安全な実装順を機械的に示す。一周で終わらず、内側が実装を進めるたびに繰り返す |
 | **上流ループ** | 人間＋AI（`/smooth-sequences` は AI 自動実行） | `/explain-seed` → `/grill-me-for-rfc` → `/smooth-sequences` → `/graphify-rfc` → `/boundify-graph` → `/split-to-tickets` | 種の事実と説明 → RFC 設計書の作成 → **全パッケージ横断の受理証明**（列挙・契約・配布の閉包） → 論理グラフ化 → ディレクトリ境界生成 → チケット分解 |
 | **実装ループ** | AI（`conver.js` が自動実行） | `/make-ticket` → `/plan-ticket` → `/start-ticket` → `/review-ticket` → `/resolve-ticket` → `/consolidate-stubs` → `/find-omissions` | チケット実装（冒頭の前提ゲートで依存順を強制） → 品質検証 → 警告・犯罪・スタブ解決 → スタブのチケット単位束ね直し → 契約ギャップ計測 → 収束 |
-| **出荷ループ** | 人間＋AI（Claude Code 上で実行） | `/crystalize-readme` | 使い方 README をセクション単位で「ユーザーにとって素敵か」の視点で検証し、書けないセクションを RESIDUE として洗い出す。コマンドは全セクション complete|residue・marker 文法正常・residue レジストリ整合で収束する（RESIDUE 0 を待たない）。RESIDUE を `/drill-rfc-down` で実装補強した後、外側の出荷判定が RESIDUE 0 と実装・テストの充足を確認して出荷 |
-| **進化ループ** | 人間＋AI（Claude Code 上で実行） | `/drill-rfc-down` | `Tickets.json` が存在すれば**引数なしでいつでも実行可能**。README の RESIDUE と SEQUENCES ビューは自動探索され、存在/不在で分岐し、引数は追加資料として後ろに足される。正典RFC・GRAPH・Dirs-Tree・Tickets を差分として矛盾なく進化させ、最後に verify でパッケージ内の貫通（view → 台帳 → GRAPH → 実装ヘッダ → Tickets）を機械検証する。`COMPLETE` は `DRILL-REPORT.json` だけが宣言する |
+| **出荷ループ** | 人間＋AI（`-T` では conver.js が自動実行） | `/crystalize-readme` | 使い方 README をセクション単位で「ユーザーにとって素敵か」の視点で検証し、書けないセクションを RESIDUE として洗い出す。コマンドは全セクション complete|residue・marker 文法正常・residue レジストリ整合で収束する（RESIDUE 0 を待たない）。RESIDUE を `/drill-rfc-down` で実装補強した後、外側の出荷判定が RESIDUE 0 と実装・テストの充足を確認して出荷 |
+| **進化ループ** | 人間＋AI（`-T` では conver.js が自動実行） | `/drill-rfc-down` | `Tickets.json` が存在すれば**引数なしでいつでも実行可能**。README の RESIDUE と SEQUENCES ビューは自動探索され、存在/不在で分岐し、引数は追加資料として後ろに足される。正典RFC・GRAPH・Dirs-Tree・Tickets を差分として矛盾なく進化させ、最後に verify でパッケージ内の貫通（view → 台帳 → GRAPH → 実装ヘッダ → Tickets）を機械検証する。`COMPLETE` は `DRILL-REPORT.json` だけが宣言する |
 
 **進化の入口は、上流ループを通過したかどうかで決まります** — 通過前は `/grill-me-for-rfc` の再実行、通過後は上表の `/drill-rfc-down` です。ループ単位の境界と但し書きは、後述の「/drill-rfc-down — 進化の扉」にある「進化の入口は、上流ループを通過したかどうかで決まる」を参照してください。
 
@@ -611,7 +611,7 @@ node .claude/skills/<name>-okf/dist/skill.mjs required --entry <concept-id>
 
 ## conver.js — ACP ベースのチケット処理パイプライン
 
-`conver.js` はこのプロジェクトの中心的な成果物です。`@agentclientprotocol/claude-agent-acp` を通じて Claude Code のセッションをプログラムから制御します。既定では**ワークスペースルート**からパッケージディレクトリを安全な実装順に移動しながら、各 `Tickets.json` のチケットを make → plan → start → review → resolve → consolidate-stubs → find の順で自動実行します。`-T` を渡すと、workspacify から crystalize までの任意の連続区間を同じ順序で実行します。
+`conver.js` はこのプロジェクトの中心的な成果物です。`@agentclientprotocol/claude-agent-acp` を通じて Claude Code のセッションをプログラムから制御します。既定では**ワークスペースルート**からパッケージディレクトリを安全な実装順に移動しながら、各 `Tickets.json` のチケットを make → plan → start → review → resolve → consolidate-stubs → find の順で自動実行します。`-T` を渡すと、workspacify から drill までの任意の連続区間を同じ順序で実行します。
 
 ### 使用方法
 
@@ -669,20 +669,22 @@ node .../conver.js -k <key> -s <url> -P doors-core -P doors-operation
 
 ```
 workspacify, educe, explain, grill, smooth, graphify, boundify, split,
-make, plan, start, review, resolve, consolidate, find, crystalize
+make, plan, start, review, resolve, consolidate, find, crystalize, drill
 ```
 
 - **連続性**: 段階を飛ばした区間（gap）、逆順、重複は起動時に拒否され、セッションは開始されません。
-- **`:N`**: 再実行可能な段階（educe, grill, smooth, graphify, boundify, split, crystalize）だけが回数を受け取ります。それ以外の段階に `:N` を付けると拒否されます。パッケージスコープの N は全パッケージを N 周、ワークスペーススコープ（workspacify, educe, smooth）の N は N 回連続実行です。
+- **`:N`**: 再実行可能な段階（educe, grill, smooth, graphify, boundify, split, crystalize）だけが回数を受け取ります。それ以外の段階に `:N` を付けると拒否されます。N は**累積目標回数**です。段階の記録済み実行回数が N に達していれば skip、未満なら実行し、記録が読めない場合は実行します（未完了を証明できないため）。パッケージスコープはパッケージ単位で判定し、同じ round を全パッケージに配ってから次の round へ進みます。ワークスペーススコープ（workspacify, educe, smooth）は root の記録で判定します。crystalize の `:N` は同一サイクル内の出荷パスの回数で、累積カウンタではありません。
 - **workspacify**: `/workspacify-tree` → `/workspacify-allocate` を1段階として順に実行します。`/workspacify-reverse` は含まれません。
-- **cwd**: workspacify, educe, smooth はワークスペースルート、それ以外はパッケージルートで実行します。
-- **実装順**: split より前は `WORKSPACIFY-ALLOCATE-MANIFEST.json` の `implementation_order.levels`、make 以降は `WORKSPACIFY-IMPLEMENTATION-ORDER.json` の `implementationOrder.levels` を読みます。workspacify と split の後は入力を読み直します。
-- **非対話**: 選択した段階は完了記録の有無で飛ばされません。educe には固定 `SYSTEM-DESIGN.md` の契約を、explain と grill には人間の判断を求めず最後まで完了する指示を conver が付加します。
+- **cwd**: workspacify, educe, smooth はワークスペースルート、それ以外（drill を含む）はパッケージルートで実行します。
+- **実装順**: split より前は `WORKSPACIFY-ALLOCATE-MANIFEST.json` の `implementation_order.levels`、make 以降は `WORKSPACIFY-IMPLEMENTATION-ORDER.json` の `implementationOrder.levels` を読みます。workspacify・split・drill の後は入力を読み直します。
+- **位相**: 適合・上流の後、全パッケージが実装 endpoint（全チケット終端かつ find がチケットを追加しない digest 一致）に達して初めて出荷へ進みます。crystalize は全パッケージに順に実行し、それが終わってから drill を全パッケージに順に実行します。drill 後に全パッケージの ticket-set digest を比較し、1つでも変化があれば実装へ戻り、変化がなければ完了します。crystalize と drill は回数や実行済みフラグではなく、この位相到達でのみ実行されます。
+- **drill**: `/drill-rfc-down` を**引数なし**でパッケージルートから実行します。`crystalize` を含まない `-T drill` は拒否されます。
+- **非対話**: 適合・上流の段階は記録済み回数で skip されます。educe には固定 `SYSTEM-DESIGN.md` の契約を、explain・grill・drill には人間の判断を求めず最後まで完了する指示を conver が付加します。
 - **既定との互換**: `-T` を省略するか既定値（`make,plan,start,review,resolve,consolidate,find`）を渡した場合、既存の実装ループと同一の経路を通ります。`-w` は既定計画でのみ使用できます。
 
 ### 実行アーキテクチャ — 5層・厳格順序
 
-conver は次の順序を機械的に守ります。
+`-T` の外側では、スケジューラが **適合 → 上流 → 実装 → 出荷 → 進化** の位相を回します。実装は全パッケージが endpoint に達するまで出荷へ進まず、出荷は全パッケージの crystalize が終わるまで進化へ進みません。drill がチケットを追加すれば実装へ戻り、追加が無ければ完了します。各位相の中では、次の順序を機械的に守ります。
 
 1. **ワークスペース** — ルートの3マニフェストを検証し、`workspacify-order` が受理した実装順を取得する。
 2. **パッケージ** — 実装順の先頭から処理する。未完了のパッケージを飛ばして後ろへ進まない。

@@ -1,42 +1,37 @@
-// stage-engine.ts — execute a -T plan with the cwd, repetition and delegation
-// rules the pipeline requires.
+// stage-engine.ts — execute the five-loop pipeline one derived action at a time.
 //
-// The engine is additive: the default implementation plan is delegated as one
-// loop with no selected-stage filter, so the existing make..find path is exactly
-// the path it was before. Upstream stages run at the workspace root or at each
-// package root according to the canonical table, and the model is re-read after
-// workspacify and split because those stages create the inputs the next stage
-// reads.
+// The engine holds no command list. Before every command it reads an immutable
+// snapshot and asks the pure reducer for exactly one action. Upstream stages use
+// their recorded counters; the implementation phase delegates to the unchanged
+// runner; shipping and evolution run for every package in proved order, and the
+// cycle returns to implementation only when a drill changed a ticket-set digest.
 import { existsSync, readdirSync } from "node:fs";
 import path from "node:path";
 
 import {
+  DRILL_OVERRIDE,
   EDUCE_FIXED_SPEC_OVERRIDE,
   EXPLAIN_OVERRIDE,
   GRILL_OVERRIDE,
 } from "./command-history.js";
-import type { WorkspaceLoopOptions } from "./runner.js";
-import { stageDefinition } from "./stage-plan.js";
+import {
+  advanceAfterImplementation,
+  createInitialPipelineState,
+  deriveNextPipelineStep,
+} from "./pipeline-action.js";
+import type { PipelineAction, PipelinePhase } from "./pipeline-action.js";
+import { readPipelineSnapshot } from "./pipeline-snapshot.js";
+import type { PipelineSnapshot } from "./pipeline-snapshot.js";
+import type { WorkspaceLoopOptions, WorkspaceLoopResult } from "./runner.js";
+import { IMPLEMENTATION_STAGES, stageDefinition } from "./stage-plan.js";
 import type { StageName, StagePlan } from "./stage-plan.js";
 import type { WorkspaceModel, WorkspacePackage } from "./workspace.js";
 
-const IMPLEMENTATION_STAGES: readonly StageName[] = Object.freeze([
-  "make",
-  "plan",
-  "start",
-  "review",
-  "resolve",
-  "consolidate",
-  "find",
-]);
-
 const IMPLEMENTATION_STAGE_SET = new Set<StageName>(IMPLEMENTATION_STAGES);
 
-// [::TICKET::] PX-454 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-454 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-454 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-454 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-455 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-455 --for-spec --no-implementation-order`.
 export type StageEngineErrorCode = "MISSING_STAGE_INPUT" | "MISSING_STAGE_ARTIFACT";
 
-// [::TICKET::] PX-454 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-454 --for-spec --no-implementation-order`.
 export class StageEngineError extends Error {
   constructor(
     readonly code: StageEngineErrorCode,
@@ -47,7 +42,6 @@ export class StageEngineError extends Error {
   }
 }
 
-// [::TICKET::] PX-454 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-454 --for-spec --no-implementation-order`.
 export interface StageRunRecord {
   stage: StageName;
   cwd: string;
@@ -55,7 +49,6 @@ export interface StageRunRecord {
   packageId: string | null;
 }
 
-// [::TICKET::] PX-454 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-454 --for-spec --no-implementation-order`.
 export interface StageCommandInput {
   cwd: string;
   command: string;
@@ -65,10 +58,9 @@ export interface StageCommandInput {
   promptOverride?: string;
 }
 
-// [::TICKET::] PX-454 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-454 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-455 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-455 --for-spec --no-implementation-order`.
 export type StageCommandRunner = (input: StageCommandInput) => Promise<void>;
 
-// [::TICKET::] PX-454 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-454 --for-spec --no-implementation-order`.
 export interface StageCheckInput {
   stage: StageName;
   cwd: string;
@@ -76,20 +68,41 @@ export interface StageCheckInput {
   workspace: WorkspaceModel;
 }
 
-// [::TICKET::] PX-454 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-454 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-455 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-455 --for-spec --no-implementation-order`.
 export interface StageEngineDeps {
   /** One command execution seam; the production adapter uses withSession/runCommand. */
   runStageCommand: StageCommandRunner;
-  /** The existing implementation loop, called once with the selected-stage set. */
-  runImplementationLoop: (options: WorkspaceLoopOptions) => Promise<unknown>;
-  /** Re-read the model after workspacify or split. */
+  /** The existing implementation loop, called once per implementation phase entry. */
+  runImplementationLoop: (options: WorkspaceLoopOptions) => Promise<WorkspaceLoopResult>;
+  /** Re-read the model after workspacify, split or drill. */
   readWorkspace: (plan: StagePlan, orderStartStage: StageName) => WorkspaceModel;
+  /** Optional snapshot seam; omitted means the real artifact reader runs. */
+  readSnapshot?: (input: {
+    root: string;
+    plan: StagePlan;
+    workspace: WorkspaceModel;
+  }) => PipelineSnapshot;
   /** Optional fail-fast gates; omitted means the defaults below run. */
   assertPrecondition?: (input: StageCheckInput) => void;
   assertArtifact?: (input: StageCheckInput) => void;
 }
 
-// [::TICKET::] PX-454 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-454 --for-spec --no-implementation-order`.
+/** One scheduler decision, emitted before the command it describes. */
+// [::TICKET::] PX-455 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-455 --for-spec --no-implementation-order`.
+export interface PipelineStepRecord {
+  readonly phase: PipelinePhase;
+  readonly stage: StageName | null;
+  readonly packageId: string | null;
+  readonly command: string | null;
+  readonly decision: "run" | "skip" | "delegate" | "complete";
+  readonly round?: number;
+  readonly reason?: string;
+  readonly runs: number;
+  readonly skips: number;
+  readonly cycles: number;
+}
+
+// [::TICKET::] PX-455 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-455 --for-spec --no-implementation-order`.
 export interface RunStagePlanInput {
   plan: StagePlan;
   workspace: WorkspaceModel;
@@ -97,6 +110,7 @@ export interface RunStagePlanInput {
   deps: StageEngineDeps;
   onStageStart?: (record: StageRunRecord) => void;
   onStageEnd?: (record: StageRunRecord) => void;
+  onPipelineStep?: (record: PipelineStepRecord) => void;
 }
 
 /** The override a stage appends to the shared prompt, or undefined. */
@@ -104,16 +118,15 @@ export function promptOverrideFor(stage: StageName): string | undefined {
   if (stage === "educe") return EDUCE_FIXED_SPEC_OVERRIDE;
   if (stage === "explain") return EXPLAIN_OVERRIDE;
   if (stage === "grill") return GRILL_OVERRIDE;
+  if (stage === "drill") return DRILL_OVERRIDE;
   return undefined;
 }
 
 /** True for a package that owes the seed-reading stages. */
-// [::TICKET::] PX-454 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-454 --for-spec --no-implementation-order`.
 function owesSeed(pkg: WorkspacePackage): boolean {
   return pkg.seedRequired !== false;
 }
 
-// [::TICKET::] PX-454 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-454 --for-spec --no-implementation-order`.
 function requireFile(file: string, code: StageEngineErrorCode, stage: StageName): void {
   if (!existsSync(file)) {
     throw new StageEngineError(
@@ -124,10 +137,12 @@ function requireFile(file: string, code: StageEngineErrorCode, stage: StageName)
 }
 
 /** The default fail-fast input gate. The command preflight remains the authority. */
-// [::TICKET::] PX-454 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-454 --for-spec --no-implementation-order`.
-function defaultAssertPrecondition({ stage, cwd, pkg }: StageCheckInput): void {
+export function defaultAssertPrecondition({ stage, cwd, pkg }: StageCheckInput): void {
   if (stage === "workspacify" || stage === "educe") {
     requireFile(path.join(cwd, "SYSTEM-DESIGN.md"), "MISSING_STAGE_INPUT", stage);
+    return;
+  }
+  if (stage === "smooth") {
     return;
   }
   if (pkg === null) return;
@@ -150,12 +165,17 @@ function defaultAssertPrecondition({ stage, cwd, pkg }: StageCheckInput): void {
   }
   if (stage === "crystalize") {
     requireFile(path.join(pkg.directory, "Tickets.json"), "MISSING_STAGE_INPUT", stage);
+    return;
+  }
+  if (stage === "drill") {
+    requireFile(path.join(pkg.directory, "RFC.md"), "MISSING_STAGE_INPUT", stage);
+    requireFile(path.join(pkg.directory, "RFC-GRAPH.json"), "MISSING_STAGE_INPUT", stage);
+    requireFile(path.join(pkg.directory, "RFC-Dirs-Tree.json"), "MISSING_STAGE_INPUT", stage);
   }
 }
 
 /** The default post-stage evidence gate: existence, not freshness. */
-// [::TICKET::] PX-454 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-454 --for-spec --no-implementation-order`.
-function defaultAssertArtifact({ stage, cwd, pkg }: StageCheckInput): void {
+export function defaultAssertArtifact({ stage, cwd, pkg }: StageCheckInput): void {
   if (stage === "workspacify") {
     requireFile(path.join(cwd, "WORKSPACIFY-TREE-MANIFEST.json"), "MISSING_STAGE_ARTIFACT", stage);
     requireFile(path.join(cwd, "WORKSPACIFY-ALLOCATE-MANIFEST.json"), "MISSING_STAGE_ARTIFACT", stage);
@@ -198,21 +218,87 @@ function defaultAssertArtifact({ stage, cwd, pkg }: StageCheckInput): void {
   }
   if (stage === "crystalize") {
     requireFile(path.join(pkg.directory, "README.md"), "MISSING_STAGE_ARTIFACT", stage);
+    return;
+  }
+  if (stage === "drill") {
+    requireFile(path.join(pkg.directory, "Tickets.json"), "MISSING_STAGE_ARTIFACT", stage);
   }
 }
 
+/** True for the stages whose execution changes the workspace the next step reads. */
+// [::TICKET::] PX-455 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-455 --for-spec --no-implementation-order`.
+function createsWorkspaceInputs(stage: StageName): boolean {
+  return stage === "workspacify" || stage === "split" || stage === "drill";
+}
+
+/** The stage whose gate governs the re-read after a structural stage. */
+// [::TICKET::] PX-455 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-455 --for-spec --no-implementation-order`.
+function reReadStartStage(plan: StagePlan, stage: StageName): StageName {
+  if (stage === "workspacify") return "educe";
+  if (stage === "split" || stage === "drill") return "make";
+  return plan.selections[0]?.name ?? "make";
+}
+
+// [::TICKET::] PX-455 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-455 --for-spec --no-implementation-order`.
+interface StageActionInput {
+  action: Extract<PipelineAction, { kind: "stage" }>;
+  workspace: WorkspaceModel;
+  checkPrecondition: (input: StageCheckInput) => void;
+  checkArtifact: (input: StageCheckInput) => void;
+  runStageCommand: StageCommandRunner;
+  onStageStart?: (record: StageRunRecord) => void;
+  onStageEnd?: (record: StageRunRecord) => void;
+}
+
+// [::TICKET::] PX-455 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-455 --for-spec --no-implementation-order`.
+async function runStageAction(input: StageActionInput): Promise<void> {
+  const { action } = input;
+  const definition = stageDefinition(action.stage);
+  const pkg = action.packageId === null
+    ? null
+    : input.workspace.packages.find((candidate) => candidate.id === action.packageId) ?? null;
+  if (action.packageId !== null && pkg === null) {
+    throw new StageEngineError(
+      "MISSING_STAGE_INPUT",
+      `stage ${action.stage} names package ${action.packageId}, which is absent from the workspace model`,
+    );
+  }
+  const cwd = pkg === null ? input.workspace.root : pkg.directory;
+  const record: StageRunRecord = {
+    stage: action.stage,
+    cwd,
+    round: action.round,
+    packageId: action.packageId,
+  };
+
+  input.onStageStart?.(record);
+  input.checkPrecondition({ stage: action.stage, cwd, pkg, workspace: input.workspace });
+  for (const command of definition.commands) {
+    await input.runStageCommand({
+      cwd,
+      command,
+      stage: action.stage,
+      round: action.round,
+      packageId: action.packageId,
+      promptOverride: promptOverrideFor(action.stage),
+    });
+  }
+  input.checkArtifact({ stage: action.stage, cwd, pkg, workspace: input.workspace });
+  input.onStageEnd?.(record);
+}
+
 /**
- * Execute a stage plan.
+ * Execute a plan until the reducer returns complete.
  *
- * Workspace-scoped stages run at the workspace root; package-scoped stages run
- * for every selected package in order. A package-scoped count N means N full
- * rounds; a workspace-scoped count N means N consecutive runs. The implementation
- * group is delegated once to the existing loop with only the selected stages.
+ * A phase transition is a state change, not a remembered command: the next
+ * iteration re-reads the snapshot before it sends anything.
  */
 export async function runStagePlan(input: RunStagePlanInput): Promise<void> {
   const previousCwd = process.cwd();
   const checkPrecondition = input.deps.assertPrecondition ?? defaultAssertPrecondition;
   const checkArtifact = input.deps.assertArtifact ?? defaultAssertArtifact;
+  const readSnapshot = input.deps.readSnapshot ?? readPipelineSnapshot;
+
   const implementationSelections = input.plan.selections.filter((selection) =>
     IMPLEMENTATION_STAGE_SET.has(selection.name),
   );
@@ -220,156 +306,106 @@ export async function runStagePlan(input: RunStagePlanInput): Promise<void> {
     ? undefined
     : new Set(implementationSelections.map((selection) => selection.name));
 
-  let currentWorkspace = input.workspace;
-  let implementationRan = false;
+  let model = input.workspace;
+  let state = createInitialPipelineState(input.plan, input.options.maxCount);
+  let runs = 0;
+  let skips = 0;
+  let cycles = 0;
+  const ranPairs = new Set<string>();
+  const skippedPairs = new Set<string>();
 
   try {
-    for (const selection of input.plan.selections) {
-      if (IMPLEMENTATION_STAGE_SET.has(selection.name)) {
-        if (!implementationRan) {
-          implementationRan = true;
-          await input.deps.runImplementationLoop({
-            ...input.options,
-            workspace: currentWorkspace,
-            ...(selectedImplementationStages === undefined
-              ? {}
-              : { selectedImplementationStages }),
-          });
-        }
+    for (;;) {
+      const phase = state.phase;
+      const snapshot = readSnapshot({ root: model.root, plan: input.plan, workspace: model });
+      const step = deriveNextPipelineStep(snapshot, state);
+
+      for (const skipped of step.skipped) {
+        const pair = `${skipped.stage}:${skipped.packageId ?? ""}`;
+        if (ranPairs.has(pair) || skippedPairs.has(pair)) continue;
+        skippedPairs.add(pair);
+        skips += 1;
+        input.onPipelineStep?.({
+          phase,
+          stage: skipped.stage,
+          packageId: skipped.packageId,
+          command: null,
+          decision: "skip",
+          runs,
+          skips,
+          cycles,
+        });
+      }
+
+      if (step.action.kind === "complete") {
+        input.onPipelineStep?.({
+          phase: "complete",
+          stage: null,
+          packageId: null,
+          command: null,
+          decision: "complete",
+          reason: step.action.reason,
+          runs,
+          skips,
+          cycles,
+        });
+        return;
+      }
+
+      if (phase === "evolve" && step.nextState.phase === "implement") cycles += 1;
+      state = step.nextState;
+
+      if (step.action.kind === "implement") {
+        input.onPipelineStep?.({
+          phase: "implement",
+          stage: null,
+          packageId: null,
+          command: null,
+          decision: "delegate",
+          runs,
+          skips,
+          cycles,
+        });
+        const outcome = await input.deps.runImplementationLoop({
+          ...input.options,
+          workspace: model,
+          ...(selectedImplementationStages === undefined
+            ? {}
+            : { selectedImplementationStages }),
+        });
+        state = advanceAfterImplementation(state, outcome);
         continue;
       }
 
-      if (stageDefinition(selection.name).scope === "workspace") {
-        await runWorkspaceStage({
-          selection,
-          workspace: currentWorkspace,
-          onStageStart: input.onStageStart,
-          onStageEnd: input.onStageEnd,
-          checkPrecondition,
-          checkArtifact,
-          runStageCommand: input.deps.runStageCommand,
-        });
-      } else {
-        await runPackageStage({
-          selection,
-          workspace: currentWorkspace,
-          onStageStart: input.onStageStart,
-          onStageEnd: input.onStageEnd,
-          checkPrecondition,
-          checkArtifact,
-          runStageCommand: input.deps.runStageCommand,
-        });
-      }
+      runs += 1;
+      ranPairs.add(`${step.action.stage}:${step.action.packageId ?? ""}`);
+      input.onPipelineStep?.({
+        phase: step.action.layer,
+        stage: step.action.stage,
+        packageId: step.action.packageId,
+        command: stageDefinition(step.action.stage).commands.join(","),
+        decision: "run",
+        round: step.action.round,
+        runs,
+        skips,
+        cycles,
+      });
 
-      // workspacify creates the two manifests every later stage reads, and split
-      // creates the tickets the implementation group reads. Re-read once, at the
-      // stage that made the new inputs available, so the next stage sees them.
-      if ((selection.name === "workspacify" || selection.name === "split")
-        && hasFollowingSelection(input.plan, selection.name)) {
-        currentWorkspace = input.deps.readWorkspace(
-          input.plan,
-          selection.name === "workspacify" ? "educe" : "make",
-        );
+      await runStageAction({
+        action: step.action,
+        workspace: model,
+        checkPrecondition,
+        checkArtifact,
+        runStageCommand: input.deps.runStageCommand,
+        onStageStart: input.onStageStart,
+        onStageEnd: input.onStageEnd,
+      });
+
+      if (createsWorkspaceInputs(step.action.stage)) {
+        model = input.deps.readWorkspace(input.plan, reReadStartStage(input.plan, step.action.stage));
       }
     }
   } finally {
     process.chdir(previousCwd);
-  }
-}
-
-// [::TICKET::] PX-454 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-454 --for-spec --no-implementation-order`.
-function hasFollowingSelection(plan: StagePlan, name: StageName): boolean {
-  const index = plan.selections.findIndex((selection) => selection.name === name);
-  return index >= 0 && index < plan.selections.length - 1;
-}
-
-// [::TICKET::] PX-454 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-454 --for-spec --no-implementation-order`.
-interface StageRunDeps {
-  selection: { name: StageName; count: number };
-  workspace: WorkspaceModel;
-  onStageStart?: (record: StageRunRecord) => void;
-  onStageEnd?: (record: StageRunRecord) => void;
-  checkPrecondition: (input: StageCheckInput) => void;
-  checkArtifact: (input: StageCheckInput) => void;
-  runStageCommand: StageCommandRunner;
-}
-
-// [::TICKET::] PX-454 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-454 --for-spec --no-implementation-order`.
-async function runWorkspaceStage(deps: StageRunDeps): Promise<void> {
-  const definition = stageDefinition(deps.selection.name);
-  for (let round = 1; round <= deps.selection.count; round++) {
-    const record: StageRunRecord = {
-      stage: deps.selection.name,
-      cwd: deps.workspace.root,
-      round,
-      packageId: null,
-    };
-    deps.onStageStart?.(record);
-    deps.checkPrecondition({
-      stage: deps.selection.name,
-      cwd: deps.workspace.root,
-      pkg: null,
-      workspace: deps.workspace,
-    });
-    for (const command of definition.commands) {
-      await deps.runStageCommand({
-        cwd: deps.workspace.root,
-        command,
-        stage: deps.selection.name,
-        round,
-        packageId: null,
-        promptOverride: promptOverrideFor(deps.selection.name),
-      });
-    }
-    deps.checkArtifact({
-      stage: deps.selection.name,
-      cwd: deps.workspace.root,
-      pkg: null,
-      workspace: deps.workspace,
-    });
-    deps.onStageEnd?.(record);
-  }
-}
-
-// [::TICKET::] PX-454 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-454 --for-spec --no-implementation-order`.
-async function runPackageStage(deps: StageRunDeps): Promise<void> {
-  const definition = stageDefinition(deps.selection.name);
-  const packages = deps.workspace.packages.filter((pkg) =>
-    deps.selection.name === "explain" || deps.selection.name === "grill" ? owesSeed(pkg) : true,
-  );
-
-  for (let round = 1; round <= deps.selection.count; round++) {
-    for (const pkg of packages) {
-      const record: StageRunRecord = {
-        stage: deps.selection.name,
-        cwd: pkg.directory,
-        round,
-        packageId: pkg.id,
-      };
-      deps.onStageStart?.(record);
-      deps.checkPrecondition({
-        stage: deps.selection.name,
-        cwd: pkg.directory,
-        pkg,
-        workspace: deps.workspace,
-      });
-      for (const command of definition.commands) {
-        await deps.runStageCommand({
-          cwd: pkg.directory,
-          command,
-          stage: deps.selection.name,
-          round,
-          packageId: pkg.id,
-          promptOverride: promptOverrideFor(deps.selection.name),
-        });
-      }
-      deps.checkArtifact({
-        stage: deps.selection.name,
-        cwd: pkg.directory,
-        pkg,
-        workspace: deps.workspace,
-      });
-      deps.onStageEnd?.(record);
-    }
   }
 }

@@ -71502,6 +71502,257 @@
           "rfcDiscrepancies": [],
           "completedAt": "2026-11-26",
           "reviewed_at": "2026-11-26T08:18:36.022Z"
+        },
+        {
+          "id": 455,
+          "phaseId": -1,
+          "status": "reviewed",
+          "title": "Add the drill stage and the five-loop workspace scheduler with exact command timing",
+          "specPath": "~/shyme/zasso/tools/conver/specs/PX-455.md",
+          "background": "### Goal\nMake conver.js drive all five loops in one run: conformance (workspacify, educe), upstream (explain, grill, smooth, graphify, boundify, split), implementation (make, plan, start, review, resolve, consolidate, find), shipping (/crystalize-readme), and evolution (/drill-rfc-down). Before every command, recompute exactly one next action naming the loop, stage, package, phase, ticket, and command.\n\n### Purpose\n/crystalize-readme leaves RESIDUE; /drill-rfc-down turns it into tickets; the implementation loop must then absorb those tickets and the cycle repeats. The current -T engine traverses a fixed selection list once, so it cannot represent this cycle, cannot skip an upstream stage already satisfied on disk, and has no drill stage.\n\n### Motivation\nCommand timing is the load-bearing contract. crystalize before every package reaches its endpoint, drill before every package is crystalized, or a missed return to implementation would corrupt both conver and every workspace it drives. The timing must be a total, deterministic function of artifacts plus a minimal in-run phase cursor, and it must be proven by exact-sequence tests.\n\n### Constraints\nThe implementation loop internals (runPackageLoop, runTicketStep, deriveNextAction, boundary-state predicates) are unchanged. The default -T plan is unchanged. crystalize and drill have no persisted executed flag and no execution counter; they run at phase entry on every cycle. Upstream skip decisions use the existing counter readers in workspacify-order/lib/counters.mjs and the existing artifactStem helper; no second reader is created. All source, comments, logs, and test names are English.",
+          "scope": [
+            "[src/stage-plan.ts] add: append drill to the canonical table after crystalize with scope package, repeatable false, and commands [/drill-rfc-down]; add drill to the existing package-gate branch; add a named plan error when drill is selected without crystalize.",
+            "[src/stage-plan.ts] detail: StageName gains drill; resolveStageGate(drill) returns requiresExistingWorkspaceGate true with the other flags false; parseStagePlan rejects drill:N and refuses a drill-only slice.",
+            "[src/stage-plan.ts] before-after: the plan union ends at crystalize before the change and at drill after the change; no other stage entry moves.",
+            "[src/stage-plan.ts] API contract: StageName is an exported union; drill is an additive member and no existing member changes meaning.",
+            "[src/stage-plan.ts] data schema: no Tickets.json schema change.",
+            "[src/stage-plan.ts] config: no environment or CLI default change; the default plan remains make,plan,start,review,resolve,consolidate,find.",
+            "[src/stage-plan.ts] dependency: none added.",
+            "[Excluded] a persisted crystalize or drill completion record, and any execution counter for them.",
+            "[Why excluded] the required semantics are phase timing, not an executed flag; a record would suppress a later cycle.",
+            "[Affected component] the stage engine, conver entry point, CLI help, README, the built bundle, and the shared counter module in workspacify-order.",
+            "[Nature of impact] command ordering and CLI surface; no data format or network protocol change.",
+            "[Response] required: every listed component is changed and tested in this ticket.",
+            "[Affected component] the implementation loop runner.",
+            "[Nature and response] no change: the runner remains the per-command recomputer inside the implementation phase."
+          ],
+          "default_files": [
+            "src/stage-plan.ts",
+            "src/command-history.ts",
+            "src/stage-engine.ts",
+            "src/pipeline-action.ts",
+            "src/pipeline-snapshot.ts",
+            "src/stage-counters.ts",
+            "src/shared-modules.d.ts",
+            "src/conver.ts",
+            "src/cli.ts",
+            "README.md",
+            "Makefile",
+            ".claude/scripts/workspacify-order/lib/counters.mjs",
+            "src/stage-plan.test.ts",
+            "src/stage-engine.test.ts",
+            "src/pipeline-action.test.ts",
+            "src/pipeline-snapshot.test.ts",
+            "src/stage-counters.test.ts",
+            "src/command-history.test.ts",
+            "src/cli.test.ts"
+          ],
+          "notes": "Single ticket by /suggest-min-tickets. The shared counter modules are imported as-is; no extraction ticket is needed because cross-command imports are established in this repository. drill and the phase machine are one atomic deliverable: a drill-only intermediate would publish a timing the next change must replace. Implementation loop internals (runPackageLoop, runTicketStep, deriveNextAction) are unchanged.\n\n- [Implementation steps] (1) typed boundary for the shared .mjs modules; (2) additive workspacify/explain readers in the shared counters module; (3) drill in the stage table, gate, and prompt override; (4) pipeline snapshot and pure derivation; (5) phase scheduler replacing the one-pass traversal; (6) CLI and README; (7) build and bundle freshness.\n- [Risks] A barrier inversion or a wrong digest baseline would corrupt command timing. Mitigation: negative tests for every forbidden transition and exact command-log assertions.\n- [Caveats] crystalize and drill have no persisted executed flag and no counter; every run that reaches the phase executes them for every workspace package. A drill that adds no ticket-set digest change ends the run even when RESIDUE remains.\n- [Open items] None.\n- [Future improvements] Extending the watcher endpoint to the evolution cycle is out of scope; the watcher keeps its default-plan restriction.\nImplementation summary:\n- Changed files: src/stage-plan.ts, src/command-history.ts, src/stage-engine.ts, src/pipeline-action.ts, src/pipeline-snapshot.ts, src/stage-counters.ts, src/shared-modules.d.ts, src/ticket-status.ts, src/conver.ts, src/cli.ts, README.md, Makefile, .claude/scripts/workspacify-order/lib/counters.mjs, and tests.\n- Test results: make test-conver 530/530 pass.\n- Typecheck: tsc --noEmit pass.\n- Conventions: make check-conventions pass.\n- Bundle freshness: make check-bundle-fresh pass.\n- Quality checks: 0 issues on changed sources.\n- Contract delivery: 8/8 contracts covered; reverify findings 0 twice with the same digest; certificate written.\n- Annotation: 0 ambiguous markers remain.\n- Pre-existing issue (not caused by PX-455): make check-path-emission reports 6 emission sites in .claude/scripts/tickets/detect-unfinished-find.js and .claude/scripts/amend-rfc-up/report.js; both files are unchanged at HEAD and absent from this ticket diff.\nReview report:\n- Static quality check: passed (0 issues after grouping the shipping parameters)\n- Translatability: no issues (no generic variables, no debug output, verb-phrase function names)\n- Dependencies: consistency verified\n- Tests: make test-conver 533/533 pass; tsc --noEmit pass; conventions pass; bundle fresh\n- Issues found and fixed: (1) ship-to-evolve transition hardcoded hasImplementation=false; derived from the plan; (2) crystalize:N was accepted but ignored; now N shipping passes, documented and tested; (3) spec logging/metrics absent; added [pipeline] step records and completion metrics; (4) grouped enterShippingOrComplete to satisfy the many-parameters check; (5) resolved 7 new definition annotations\n- Verification: 8/8 contracts covered; reverify 0 findings twice with the same digest; certificate written; annotations missing 0, ambiguous 0\n- Formula check G7c: this package has no RFC-Dirs-Tree.json or RFC-FORMULAS.json; the dry-run reports MISSING_DIRS_TREE and exits 0, so no formula obligation applies\n- Pre-existing issue (not caused by PX-455): check-path-emission reports 6 sites in unchanged .claude/scripts/tickets/detect-unfinished-find.js and .claude/scripts/amend-rfc-up/report.js",
+          "invariants": "- [Normal condition] Every scheduler step derives exactly one action from the current snapshot and run state, and that action belongs to the selected contiguous slice.\n- [Error invariant] A missing stage input, a missing stage artifact, an unknown ticket status, or an unmet phase barrier raises a named error and issues no command.\n- [Internal state invariant] The only in-run scheduler state is the phase, the ship and evolve cursors, the cycle baseline digests, and the remaining budget; every other fact is re-read from artifacts before each step.\n- [Boundary invariant] crystalize runs only when every workspace package is at its implementation endpoint; drill runs only after crystalize finished for every workspace package; the run returns to implementation only when at least one package ticket-set digest changed during the cycle.",
+          "testUnit": [
+            "UT: [Normal] stage plan accepts \"crystalize:2,drill\" as a contiguous slice and reports drill last.",
+            "UT: [Normal] the canonical table lists drill immediately after crystalize with package scope, repeatable false, and command /drill-rfc-down.",
+            "UT: [Normal] resolveStageGate(\"drill\") returns requiresExistingWorkspaceGate true, requiresSystemDesign false, and requiresTreeAndAllocate false.",
+            "UT: [Normal] promptOverrideFor(\"drill\") returns DRILL_OVERRIDE and every other stage keeps its previous override.",
+            "UT: [Normal] DRILL_OVERRIDE starts with the CRITICAL non-interactive header, contains the three telegraphic clauses, and contains no non-ASCII character.",
+            "UT: [Normal] composePrompt(\"/drill-rfc-down\", 0, DRILL_OVERRIDE) appends the override after the cross-package directive and the completion report directive.",
+            "UT: [Normal] composePrompt without an override returns the byte-identical default composition for every existing stage.",
+            "UT: [Normal] readStageExecutionCount returns the recorded runs for graphify, boundify, and split.",
+            "UT: [Normal] readStageExecutionCount returns the root generation for educe and smooth.",
+            "UT: [Normal] readStageExecutionCount returns grillGeneration and falls back to completedSessions when the generation field is absent.",
+            "UT: [Normal] readWorkspacifyRuns returns 1 when both manifests exist and 0 otherwise.",
+            "UT: [Normal] readExplainRuns returns 1 when EXPLAIN-RFC-SEED.md exists and 0 otherwise.",
+            "UT: [Normal] the counter decision skips a stage when count reaches the target and runs it when count is below the target.",
+            "UT: [Normal] deriveNextPipelineStep in the upstream phase returns the first unsatisfied stage in canonical order and workspace package order.",
+            "UT: [Normal] deriveNextPipelineStep in the implementation phase returns the implement action while any package is not endpoint.",
+            "UT: [Normal] deriveNextPipelineStep in the ship phase returns crystalize for each package in proved order.",
+            "UT: [Normal] deriveNextPipelineStep in the evolve phase returns drill for each package in proved order.",
+            "UT: [Normal] deriveNextPipelineStep returns complete when drill changes no package ticket-set digest.",
+            "UT: [Normal] deriveNextPipelineStep returns the implementation phase when drill changes one package digest.",
+            "UT: [Normal] deriveNextPipelineStep is deterministic: the same snapshot and run state yield the same action.",
+            "UT: [Normal] deriveNextPipelineStep is total: an unknown ticket status raises a named error rather than guessing a command.",
+            "UT: [Error] parseStagePlan(\"drill:2\") raises COUNT_NOT_ALLOWED.",
+            "UT: [Error] parseStagePlan(\"drill\") raises DRILL_REQUIRES_CRYSTALIZE.",
+            "UT: [Error] parseStagePlan(\"drill,crystalize\") raises OUT_OF_ORDER.",
+            "UT: [Error] parseStagePlan(\"find,drill\") raises GAP.",
+            "UT: [Error] a missing RFC-Dirs-Tree.json raises MISSING_STAGE_INPUT for drill.",
+            "UT: [Error] a missing RFC-GRAPH.json raises MISSING_STAGE_INPUT for drill.",
+            "UT: [Error] a missing Tickets.json after drill raises MISSING_STAGE_ARTIFACT.",
+            "UT: [Error] a crystalize action while one package is not endpoint raises IMPLEMENTATION_NOT_SETTLED and issues no command.",
+            "UT: [Error] a non-zero stage command stops the scheduler and issues no later command.",
+            "UT: [Error] an unreadable counter returns null and the stage runs rather than being skipped.",
+            "UT: [Error] an implementation phase that reaches the budget limit stops before ship.",
+            "UT: [Boundary] count equal to the target skips the stage and count one below the target runs it.",
+            "UT: [Boundary] a workspace with zero packages completes the ship phase without a command.",
+            "UT: [Boundary] a package added by drill has no baseline digest and forces the implementation phase.",
+            "UT: [Boundary] the default plan performs exactly one implementation loop call and no ship or evolve command.",
+            "UT: [Boundary] -T crystalize performs every package crystalize and then completes.",
+            "UT: [Boundary] -T crystalize,drill with ticket additions ends after evolve because implementation is outside the slice.",
+            "UT: [Invariant] no crystalize command is issued before every workspace package is endpoint.",
+            "UT: [Invariant] no drill command is issued before crystalize ran for every workspace package.",
+            "UT: [Invariant] every issued command belongs to the selected contiguous slice.",
+            "UT: [Invariant] the implementation loop is invoked once per implementation phase entry with the unchanged selected-stage set.",
+            "UT: [Invariant] ticket counts are never used as a completion predicate.",
+            "UT: [Invariant] drill is invoked with zero argv in the package directory.",
+            "UT: [Contract C001] stage plan input selecting drill: drill is accepted only after crystalize and with no count; drill remains the last canonical stage.",
+            "UT: [Contract C002] a stage and package with a recorded execution count: the stage is skipped when count reaches the target and runs when count is below it; an unreadable counter runs rather than skips.",
+            "UT: [Contract C003] crystalize selected in the plan: crystalize is issued only after every package is endpoint; no crystalize command precedes the endpoint of every package.",
+            "UT: [Contract C004] drill selected in the plan: drill is issued for every package only after crystalize finished for every package; no drill command precedes the completion of crystalize for every package.",
+            "UT: [Contract C005] evolve finished and a package ticket-set digest changed: the next action is the implementation phase; a changed digest always returns to implementation before any completion.",
+            "UT: [Contract C006] evolve finished and every package digest is unchanged: the scheduler returns complete with no further command; ticket counts are never the completion predicate.",
+            "UT: [Contract C007] a pipeline snapshot and run state: exactly one action is returned from the allowed set; derivation is deterministic and total.",
+            "UT: [Contract C008] a drill action for a package: the command is /drill-rfc-down with zero argv in the package directory and DRILL_OVERRIDE; the default prompt composition remains byte-identical."
+          ],
+          "testIntegration": [
+            "IT: stage-engine + pipeline-action + pipeline-snapshot with a fake command executor: a two-package workspace runs upstream, implementation, crystalize for both packages in proved order, drill for both packages in proved order, and completes with no added tickets; assert the full command log, not only the final state.",
+            "IT: drill adds a ticket to package B; assert the next scheduler step is the implementation phase, package A receives no implementation command, and the second ship pass still runs crystalize for both packages.",
+            "IT: find adds a ticket; assert the package keeps running implementation commands and the ship phase is not entered until find records a digest matching the current ticket set.",
+            "IT: start and resolve create a deferral ticket; assert the next deriveNextAction sees the new ticket without a restart.",
+            "IT: split creates Tickets.json; assert the scheduler re-reads the workspace and the implementation phase sees the new tickets.",
+            "IT: workspacify creates the two manifests; assert the next upstream stage reads the re-loaded workspace.",
+            "IT: drill changes a non-invoked package through the cross-package directive; assert the digest comparison covers every workspace package and returns to implementation.",
+            "IT: the default plan command log is byte-identical to the pre-change log for the same fixture.",
+            "IT: stage-counters agrees with workspacify-order for the same package fixtures, proving one shared reader."
+          ],
+          "testExceptions": [
+            "Real ACP provider latency and retry timing cannot test deterministically in unit scope; verified through the injected StageCommandRunner seam and retryWithBackoff unit tests; this is not a design defect because the seam is the production boundary.",
+            "The esbuild bundle byte size cannot test as a semantic assertion; verified by the build succeeding and by check-bundle-fresh; this is not a design defect because bundle freshness is the observable contract.",
+            "A human-visible terminal dashboard redraw cannot test without a TTY; verified through the renderer unit seams; this is not a design defect because the renderer writes through an injected write function."
+          ],
+          "instrumentation": "- [Logging] Each scheduler step writes one line: [pipeline] phase=<phase> stage=<stage> package=<id> ticket=<key> command=<cmd> decision=<run|skip|delegate>.\n- [Metrics] Per stage and package, count run and skip decisions; count cycles per run and print the totals at completion.\n- [Error tracking] Every named error carries the phase, stage, package, and the artifact or status that blocked it; no command is issued after the error.\n- [Health check] On completion print the final phase, the number of cycles, and whether the exit reason was no-added-tickets or budget-exhausted.\nStatic quality check: passed\nTranslatability: no issues\nTests: 533/533 passed\nPipeline telemetry: [pipeline] phase/stage/package/decision per step; completion carries reason, runs, skips, cycles",
+          "acceptanceCriteria": [
+            "[Happy path] -T make,plan,start,review,resolve,consolidate,find,crystalize,drill on a two-package workspace with a settled implementation runs crystalize for both packages, then drill for both; a drill that adds a ticket returns to implementation, and a drill that adds none completes; the command log matches the exact expected sequence.",
+            "[Error case] -T drill:2, -T drill, and -T find,drill are refused with the named plan errors; a missing RFC-Dirs-Tree.json raises MISSING_STAGE_INPUT; a crystalize action while any package is not endpoint raises IMPLEMENTATION_NOT_SETTLED and issues no command.",
+            "[Edge case] The default plan performs one implementation loop call and no ship or evolve command; -T crystalize performs ship only; -T crystalize,drill with ticket additions ends after evolve; a package added by drill forces implementation; an unreadable counter runs the stage."
+          ],
+          "investigation": "Source evidence gathered before writing this spec:\n\n- src/stage-plan.ts:9-25 StageName union; 73-90 canonical table; 136-163 resolveStageGate; 181-246 parseStagePlan and contiguity.\n- src/stage-engine.ts:212-278 one-pass selection traversal; 264-273 re-read only after workspacify and split; 128-154 precondition gates; 158-202 artifact gates; 103-108 promptOverrideFor.\n- src/runner.ts:5-6 and 509 deriveNextAction before every execution; 938 re-derivation inside one bound session; 1261-1304 runWorkspaceLoop; 162-164 WorkspaceLoopResult.\n- src/boundary-state.ts:110 computeTicketSetDigest; 136-164 isPackageEndpoint; 299-321 markBoundaryCompleted.\n- src/conver.ts:164-205 stage deps and the workspacify two-phase special case.\n- src/command-history.ts:42-67 overrides; 132-147 composePrompt.\n- .claude/scripts/workspacify-order/lib/counters.mjs: readRootEduceGeneration, readRootSmoothGeneration, readGrillGeneration, readGraphRuns, readBoundifyRuns, readSplitRuns.\n- .claude/scripts/rfc-graph/lib/status-generation.js:28-36 beginRun increments runs once per runId.\n- .claude/scripts/workspacify-order/lib/workspace.mjs:161 artifactStem.\n- .claude/scripts/conver/progress-gif/loop.js:4-8 STAGE_ORDER already contains drill.\n- .claude/scripts/drill-rfc-down/preflight.cjs:4-18 and 92-112 resolve packageDir from cwd or --package; RFC, GRAPH, and Dirs-Tree are required; Tickets.json absence routes to /split-to-tickets.\n- tsconfig.json has no allowJs; an ambient wildcard module declaration was verified to satisfy a relative .mjs import under NodeNext with tsc --noEmit.",
+          "boyScoutPlan": "Name functions as verb phrases (deriveNextPipelineStep, readStageExecutionCount, readWorkspacifyRuns, readExplainRuns). Extract the phase transition into one named reducer so the loop body reads as prose. Replace magic phase strings with a frozen union. Do not swallow errors: every unreadable artifact either raises a named error or is explicitly reported as an unknown count. Keep comments English and explain why a barrier exists, not what the code does.",
+          "contracts": [
+            {
+              "id": "C001",
+              "sourceEdge": "five-loop timing: stage grammar",
+              "precondition": "stage plan input selecting drill",
+              "postcondition": "drill is accepted only after crystalize and with no count",
+              "invariant": "drill remains the last canonical stage"
+            },
+            {
+              "id": "C002",
+              "sourceEdge": "five-loop timing: upstream skip",
+              "precondition": "a stage and package with a recorded execution count",
+              "postcondition": "the stage is skipped when count reaches the target and runs when count is below it",
+              "invariant": "an unreadable counter runs rather than skips"
+            },
+            {
+              "id": "C003",
+              "sourceEdge": "five-loop timing: ship barrier",
+              "precondition": "crystalize selected in the plan",
+              "postcondition": "crystalize is issued for every package only after every package is endpoint",
+              "invariant": "no crystalize command precedes the endpoint of every package"
+            },
+            {
+              "id": "C004",
+              "sourceEdge": "five-loop timing: evolve barrier",
+              "precondition": "drill selected in the plan",
+              "postcondition": "drill is issued for every package only after crystalize finished for every package",
+              "invariant": "no drill command precedes the completion of crystalize for every package"
+            },
+            {
+              "id": "C005",
+              "sourceEdge": "five-loop timing: cycle return",
+              "precondition": "evolve finished and a package ticket-set digest changed",
+              "postcondition": "the next action is the implementation phase",
+              "invariant": "a changed digest always returns to implementation before any completion"
+            },
+            {
+              "id": "C006",
+              "sourceEdge": "five-loop timing: completion",
+              "precondition": "evolve finished and every package digest is unchanged",
+              "postcondition": "the scheduler returns complete with no further command",
+              "invariant": "ticket counts are never the completion predicate"
+            },
+            {
+              "id": "C007",
+              "sourceEdge": "five-loop timing: derivation",
+              "precondition": "a pipeline snapshot and run state",
+              "postcondition": "exactly one action is returned from the allowed set",
+              "invariant": "derivation is deterministic and total"
+            },
+            {
+              "id": "C008",
+              "sourceEdge": "five-loop timing: drill invocation",
+              "precondition": "a drill action for a package",
+              "postcondition": "the command is /drill-rfc-down with zero argv in the package directory and DRILL_OVERRIDE",
+              "invariant": "the default prompt composition remains byte-identical"
+            }
+          ],
+          "created_at": "2026-11-27",
+          "updated_at": "2026-11-27",
+          "targetStubs": "verified_empty",
+          "targetCrimes": "verified_empty",
+          "made_at": "2026-11-27T02:06:15.396Z",
+          "planTestCode": [
+            "UT: [Contract C001] drill grammar.\n```ts\nconst plan = parseStagePlan(\"crystalize:2,drill\");\nassert.deepEqual(plan.selections.map((s) => s.name), [\"crystalize\", \"drill\"]);\nconst last = CANONICAL_STAGE_DEFINITIONS[CANONICAL_STAGE_DEFINITIONS.length - 1];\nassert.equal(last.name, \"drill\");\nassert.equal(last.repeatable, false);\nassert.throws(() => parseStagePlan(\"drill:2\"), (e) => e.code === \"COUNT_NOT_ALLOWED\");\nassert.throws(() => parseStagePlan(\"drill\"), (e) => e.code === \"DRILL_REQUIRES_CRYSTALIZE\");\n```",
+            "UT: [Contract C002] counter target decision.\n```ts\nconst pkg = fixturePackage(\"pkg-a\", { graphRuns: 2, drillRuns: 0 });\nconst count = readStageExecutionCount(\"graphify\", pkg);\nassert.equal(count, 2);\nassert.equal(decideStageRun({ count, target: 2 }), \"skip\");\nassert.equal(decideStageRun({ count: 1, target: 2 }), \"run\");\nassert.equal(decideStageRun({ count: null, target: 2 }), \"run\");\n```",
+            "UT: [Contract C003] ship barrier.\n```ts\nconst snapshot = snapshotOf([endpointPackage(\"pkg-a\"), activePackage(\"pkg-b\")]);\nconst state = stateAt(\"implement\");\nassert.throws(\n  () => deriveNextPipelineStep(snapshot, { ...state, phase: \"ship\" }),\n  (error) => error.code === \"IMPLEMENTATION_NOT_SETTLED\",\n);\n```",
+            "UT: [Contract C004] evolve barrier.\n```ts\nconst step = deriveNextPipelineStep(snapshotOfTwoEndpoints(), stateAt(\"ship\"));\nassert.equal(step.action.kind, \"stage\");\nassert.equal(step.action.stage, \"crystalize\");\nassert.equal(step.action.packageId, \"pkg-a\");\nassert.notEqual(step.action.stage, \"drill\");\nconst afterShip = { ...step.nextState, shipIndex: 2 };\nassert.equal(deriveNextPipelineStep(snapshotOfTwoEndpoints(), afterShip).nextState.phase, \"evolve\");\n```",
+            "UT: [Contract C005] cycle return.\n```ts\nconst baseline = new Map([[\"pkg-a\", \"sha256:before\"], [\"pkg-b\", \"sha256:before\"]]);\nconst after = snapshotWithDigests({ \"pkg-a\": \"sha256:after\", \"pkg-b\": \"sha256:before\" });\nconst step = deriveNextPipelineStep(after, {\n  phase: \"evolve\", shipIndex: 0, evolveIndex: 2, baseline, remainingBudget: 10,\n});\nassert.equal(step.nextState.phase, \"implement\");\nassert.deepEqual(step.action, { kind: \"implement\" });\n```",
+            "UT: [Contract C006] completion.\n```ts\nconst baseline = new Map([[\"pkg-a\", \"sha256:same\"]]);\nconst step = deriveNextPipelineStep(snapshotWithDigests({ \"pkg-a\": \"sha256:same\" }), {\n  phase: \"evolve\", shipIndex: 0, evolveIndex: 1, baseline, remainingBudget: 10,\n});\nassert.deepEqual(step.action, { kind: \"complete\", reason: \"workspace-complete\" });\n```",
+            "UT: [Contract C007] derivation purity and totality.\n```ts\nconst first = deriveNextPipelineStep(snapshot, state);\nconst second = deriveNextPipelineStep(snapshot, state);\nassert.deepEqual(first, second);\nassert.equal(first.action.kind, \"stage\");\nassert.throws(\n  () => deriveNextPipelineStep(snapshotWithUnknownTicketStatus(), stateAt(\"implement\")),\n  (error) => error.code === \"INVALID_TICKET_STATUS\",\n);\n```",
+            "UT: [Contract C008] drill invocation.\n```ts\nconst calls: StageCommandInput[] = [];\nawait runStagePlan({\n  plan: parseStagePlan(\"crystalize,drill\"),\n  workspace: twoEndpointPackages(),\n  options: loopOptions(),\n  deps: fakeDeps(calls),\n});\nconst drill = calls.find((call) => call.stage === \"drill\");\nassert.equal(drill.command, \"/drill-rfc-down\");\nassert.equal(drill.promptOverride, DRILL_OVERRIDE);\nassert.equal(drill.cwd, join(root, \"pkg-a\"));\nassert.equal(drill.argv, undefined);\n```"
+          ],
+          "planned_at": "2026-11-27T02:07:38.815Z",
+          "startedAt": "2026-11-27",
+          "changes": [
+            {
+              "before": "StageName ended at crystalize",
+              "after": "StageName ends at drill",
+              "description": "Added drill as a non-repeatable package stage after crystalize with /drill-rfc-down, placed it in the existing package gate, and refused a drill-only slice."
+            },
+            {
+              "before": "No drill prompt override",
+              "after": "DRILL_OVERRIDE appended after the CRITICAL block",
+              "description": "Added the three English telegraphic clauses and routed promptOverrideFor('drill') to it. The default composition is unchanged."
+            },
+            {
+              "before": "No shared counter adapter in conver",
+              "after": "stage-counters imports the existing workspacify-order readers",
+              "description": "Added readStageExecutionCount and decideStageRun; added readWorkspacifyRuns and readExplainRuns to the shared module; no second reader was created."
+            },
+            {
+              "before": "No pipeline snapshot or pure reducer",
+              "after": "pipeline-snapshot.ts and pipeline-action.ts",
+              "description": "Snapshot carries tickets, digest, endpoint, seed obligation and stage counts. The reducer returns exactly one action and the next state, with barriers, cycle return and completion."
+            },
+            {
+              "before": "One-pass selection traversal",
+              "after": "Workspace phase scheduler",
+              "description": "runStagePlan now derives one action per iteration, re-reads after workspacify/split/drill, and delegates the implementation loop once per implementation phase entry. Added drill gates."
+            },
+            {
+              "before": "conver special-cased workspacify",
+              "after": "One runStagePlan call",
+              "description": "Removed the two-phase workspacify block; the scheduler re-reads the model."
+            },
+            {
+              "before": "CLI and README ended at crystalize",
+              "after": "drill documented",
+              "description": "Added drill to the -T help, canonical order, phase machine, barriers, cycle and execution subjects; registered new tests in the Makefile; rebuilt the committed bundle."
+            },
+            {
+              "before": "No tests for drill or the phase machine",
+              "after": "New and extended tests",
+              "description": "Added stage-counters, pipeline-snapshot and pipeline-action suites; rewrote the stage-engine suite for exact command logs, barriers and cycle; extended stage-plan and command-history tests."
+            },
+            {
+              "before": "Review found a hardcoded ship transition flag, an ignored crystalize count, and no pipeline telemetry",
+              "after": "Plan-derived implementation flag, crystalize:N shipping passes, [pipeline] step telemetry",
+              "description": "Derived hasImplementation on the ship-to-evolve transition; honored crystalize:N as shipping passes; added run/skip/delegate/complete step records with runs/skips/cycles; grouped the shipping parameters for the quality gate."
+            }
+          ],
+          "done_at": "2026-11-27T02:17:15.316Z",
+          "rfcDiscrepancies": [],
+          "completedAt": "2026-11-27",
+          "reviewed_at": "2026-11-27T02:22:19.381Z"
         }
       ]
     },

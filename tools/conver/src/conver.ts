@@ -18,6 +18,7 @@ import {
 } from "./stage-plan.js";
 import type { StageName, StagePlan } from "./stage-plan.js";
 import { runStagePlan } from "./stage-engine.js";
+import type { PipelineStepRecord } from "./stage-engine.js";
 import type { StageEngineDeps, StageRunRecord } from "./stage-engine.js";
 import { loadWatcherConfig } from "./watcher.js";
 import type { WatcherConfig } from "./watcher.js";
@@ -130,7 +131,7 @@ function hasUpstreamStage(plan: StagePlan): boolean {
  * workspacify and split because those stages create the inputs the next stage
  * reads.
  */
-// [::TICKET::] PX-454 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-454 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-454, PX-455 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-454|PX-455) --for-spec --no-implementation-order`.
 async function runStageMode(
   cli: CliOptions,
   plan: StagePlan,
@@ -174,31 +175,18 @@ async function runStageMode(
       const target = record.packageId === null ? record.cwd : `${record.cwd} package=${record.packageId}`;
       process.stdout.write(`[stage] ${record.stage} round=${record.round} ${target}\n`);
     },
+    onPipelineStep: (record: PipelineStepRecord) => {
+      const detail = record.decision === "complete"
+        ? `reason=${record.reason ?? "-"} runs=${record.runs} skips=${record.skips} cycles=${record.cycles}`
+        : `command=${record.command ?? "-"} round=${record.round ?? "-"}`;
+      process.stdout.write(
+        `[pipeline] phase=${record.phase} stage=${record.stage ?? "-"} package=${record.packageId ?? "-"} decision=${record.decision} ${detail}\n`,
+      );
+    },
   };
 
-  const first = plan.selections[0];
-  if (first?.name === "workspacify") {
-    await runStagePlan({
-      plan: { selections: [first] },
-      workspace: initialModel,
-      options: buildLoopOptions(cli, initialModel, display),
-      deps,
-      ...stageHooks,
-    });
-    const reloaded = readWorkspaceForStagePlan(root, plan, undefined, "educe");
-    const rest: StagePlan = { selections: plan.selections.slice(1) };
-    if (rest.selections.length > 0) {
-      await runStagePlan({
-        plan: rest,
-        workspace: reloaded,
-        options: buildLoopOptions(cli, reloaded, display),
-        deps,
-        ...stageHooks,
-      });
-    }
-    return;
-  }
-
+  // The scheduler re-reads the workspace after workspacify, split and drill, so a
+  // plan that starts at workspacify is one call like every other plan.
   await runStagePlan({
     plan,
     workspace: initialModel,

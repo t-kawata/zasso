@@ -1,3 +1,4 @@
+// [::TICKET::] PX-455 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-455 --for-spec --no-implementation-order`.
 // command-history.ts — the last ten command executions and the fail-stop rule.
 //
 // The loop re-reads Tickets.json before every execution, so an unchanged
@@ -64,6 +65,18 @@ export const EXPLAIN_OVERRIDE = [
 export const GRILL_OVERRIDE = [
   NON_INTERACTIVE_OVERRIDE,
   "Do not use chosen_default or any recorded default to bypass a decision. Answer every open point yourself using the command's answer mechanism and complete the design.",
+].join("\n");
+
+/**
+ * drill's question gate is its only route to a human. It must settle every
+ * direction question itself and must finish cross-package design work rather
+ * than applying a mechanical fix across a directory contradiction.
+ */
+export const DRILL_OVERRIDE = [
+  NON_INTERACTIVE_OVERRIDE,
+  "Settle every direction question yourself; never bundle one to a human.",
+  "Anything causing, or potentially causing, cross-package omission/contradiction/deficiency/danger: complete design, authoring, update in this drill, spanning packages.",
+  "Directory contradiction: no dangerous mechanical fix; judge; fix across packages.",
 ].join("\n");
 
 /** Escalation texts, from a direct restatement to a final warning. */
