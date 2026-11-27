@@ -77,6 +77,12 @@ export interface StageEngineDeps {
   runStageCommand: StageCommandRunner;
   /** The existing implementation loop, called once per implementation phase entry. */
   runImplementationLoop: (options: WorkspaceLoopOptions) => Promise<WorkspaceLoopResult>;
+  /**
+   * Runs at the workspace root immediately before the implementation loop.
+   * The adapter is responsible for making this non-throwing: a reflection step
+   * must never block the loop it observes.
+   */
+  beforeImplementation?: (input: { root: string }) => Promise<void>;
   /** Re-read the model after workspacify, split or drill. */
   readWorkspace: (plan: StagePlan, orderStartStage: StageName) => WorkspaceModel;
   /** Optional snapshot seam; omitted means the real artifact reader runs. */
@@ -391,6 +397,9 @@ export async function runStagePlan(input: RunStagePlanInput): Promise<void> {
           skips,
           cycles,
         });
+        // The boundary sits below every upstream stage, so all split rounds have
+        // completed before this reflection runs.
+        await input.deps.beforeImplementation?.({ root: model.root });
         const outcome = await input.deps.runImplementationLoop({
           ...input.options,
           workspace: model,

@@ -16,6 +16,11 @@ import path from "node:path";
 import { withSession, runCommand } from "./session.js";
 import type { RunCommandOptions, AcpSession, SessionConfig } from "./session.js";
 import {
+  PICKUP_COMMAND,
+  runPickupAtBoundary,
+} from "./pickup-at-boundary.js";
+import type { PickupAvailability } from "./pickup-at-boundary.js";
+import {
   sendSlackBoundaryComplete,
   sendSlackFindUnfinished,
   sendSlackPhaseComplete,
@@ -154,6 +159,17 @@ export interface PackageLoopDeps {
   detectUnfinishedFind?: DetectUnfinishedFind;
   /** Optional file-system seam for deterministic boundary-state failures. */
   boundaryStateIo?: BoundaryStateIo;
+  /**
+   * Runs the reflection command in its own session rooted at the workspace.
+   * Undefined disables the boundary (test seams and non-pushing runs).
+   */
+  runPickup?: (
+    root: string,
+    config: SessionConfig,
+    runOptions: RunCommandOptions,
+  ) => Promise<void>;
+  /** Availability seam; absent means the installed-command/upstream check runs. */
+  pickupAvailability?: (root: string) => PickupAvailability;
   now: () => number;
 }
 
@@ -174,6 +190,11 @@ const DEFAULT_PACKAGE_LOOP_DEPS: PackageLoopDeps = {
   sendSlackFindUnfinished,
   detectUnfinishedFind: detectUnfinishedFindForPackage,
   boundaryStateIo: nodeBoundaryStateIo,
+  runPickup: async (root, config, runOptions) => {
+    await withSession(root, config, async (session) => {
+      await runCommand(session, PICKUP_COMMAND, runOptions);
+    });
+  },
   now: Date.now,
 };
 
@@ -595,6 +616,27 @@ async function stopAndThrow(
   throw new LoopStoppedError(context);
 }
 
+/**
+ * Reflect on local .claude changes immediately before the push that will carry
+ * them. The session is rooted at the workspace, not the package directory,
+ * because the command scans the .claude that owns the run.
+ */
+async function runPickupBeforePush(
+  options: WorkspaceLoopOptions,
+  deps: PackageLoopDeps,
+): Promise<void> {
+  const runPickup = deps.runPickup;
+  if (runPickup === undefined) return;
+  await runPickupAtBoundary({
+    root: options.workspace.root,
+    execute: (cwd) =>
+      runPickup(cwd, toSessionConfig(options), toRunCommandOptions(options)),
+    ...(deps.pickupAvailability === undefined
+      ? {}
+      : { isAvailable: deps.pickupAvailability }),
+  });
+}
+
 // [::TICKET::] PX-403, PX-404, PX-449 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-403|PX-404|PX-449) --for-spec --no-implementation-order`.
 async function runResolve(
   pkg: WorkspacePackage,
@@ -621,6 +663,9 @@ async function runResolve(
   process.stdout.write("\n>>> ✅ resolve 完了\n");
 
   if (options.pushEnabled) {
+    // Reflect before the push, not after: the push is what carries the local
+    // .claude changes to the upstream the scan compares against.
+    await runPickupBeforePush(options, deps);
     printCommandHeader("/epush-branch");
     await runDisplayedCommand({
       pkg,

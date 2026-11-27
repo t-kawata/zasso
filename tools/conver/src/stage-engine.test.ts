@@ -663,6 +663,80 @@ describe("runStagePlan — barriers and cycle", () => {
   });
 });
 
+describe("runStagePlan — pickup at the implementation boundary", () => {
+  it("runs pickup at the workspace root after every split and before the loop", async () => {
+    const state = createFakeState();
+    const order: string[] = [];
+    const fake = createFakeDeps(state, {
+      runStageCommand: async (input) => {
+        order.push(`${input.stage}:${input.packageId ?? "root"}`);
+        const stageKey = key(input.stage, input.cwd);
+        state.counts.set(stageKey, (state.counts.get(stageKey) ?? 0) + 1);
+      },
+      beforeImplementation: async ({ root }) => {
+        order.push(`pickup:${root}`);
+      },
+      runImplementationLoop: async () => {
+        order.push("loop");
+        return { processed: 1, allSelectedComplete: true };
+      },
+    });
+
+    await runStagePlan({
+      plan: parseStagePlan("split,make"),
+      workspace: workspace(),
+      options: loopOptions(),
+      deps: fake.deps,
+    });
+
+    assert.deepStrictEqual(order, [
+      "split:pkg-a",
+      "split:pkg-b",
+      "pickup:/ws",
+      "loop",
+    ]);
+  });
+
+  it("does not run pickup when the plan never enters implementation", async () => {
+    let called = false;
+    const fake = createFakeDeps(createFakeState(), {
+      beforeImplementation: async () => {
+        called = true;
+      },
+    });
+
+    await runStagePlan({
+      plan: parseStagePlan("split"),
+      workspace: workspace(),
+      options: loopOptions(),
+      deps: fake.deps,
+    });
+
+    assert.strictEqual(called, false);
+  });
+
+  it("runs pickup before every implementation entry", async () => {
+    const state = createFakeState({ drillAdds: new Set(["pkg-b"]) });
+    const roots: string[] = [];
+    const fake = createFakeDeps(state, {
+      beforeImplementation: async ({ root }) => {
+        roots.push(root);
+      },
+    });
+
+    await runStagePlan({
+      plan: parseStagePlan(
+        "make,plan,start,review,resolve,consolidate,find,crystalize,drill",
+      ),
+      workspace: workspace(),
+      options: loopOptions(),
+      deps: fake.deps,
+    });
+
+    assert.deepStrictEqual(roots, ["/ws", "/ws"]);
+  });
+});
+
 describe("default stage gates", () => {
 // [::TICKET::] PX-455 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-455 --for-spec --no-implementation-order`.
   function checkInput(stage: StageName, cwd: string, pkg: WorkspacePackage | null): StageCheckInput {

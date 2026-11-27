@@ -52,6 +52,10 @@ import { readProgressSnapshot } from "./progress/model.js";
 import { setAgentStderrSink } from "./session.js";
 import { checkRuntimeDependencies } from "./runtime-dependencies.js";
 import type { DisplayHooks } from "./runner.js";
+import {
+  PICKUP_COMMAND,
+  runPickupAtBoundary,
+} from "./pickup-at-boundary.js";
 
 /** Fallback width for a TTY whose column count the platform does not report. */
 const DEFAULT_TERMINAL_WIDTH = 120;
@@ -147,26 +151,37 @@ async function runStageMode(
       ? {}
       : { onUpdate: display.onUpdate, onFlush: display.onFlush }),
   };
+  const runSessionCommand = async (
+    cwd: string,
+    command: string,
+    promptOverride?: string,
+  ): Promise<void> => {
+    await retryWithBackoff(
+      () =>
+        withSession(cwd, sessionConfig, async (session) => {
+          await runCommand(session, command, {
+            ...runOptions,
+            promptOverride,
+          });
+        }),
+      {
+        maxAttempts: retryPolicy.maxAttempts,
+        baseDelayMs: retryPolicy.baseDelayMs,
+        maxDelayMs: retryPolicy.maxDelayMs,
+        jitterMs: retryPolicy.jitterMs,
+        isRetryable: isRecoverableError,
+      },
+    );
+  };
   const deps: StageEngineDeps = {
-    runStageCommand: async (input) => {
-      await retryWithBackoff(
-        () =>
-          withSession(input.cwd, sessionConfig, async (session) => {
-            await runCommand(session, input.command, {
-              ...runOptions,
-              promptOverride: input.promptOverride,
-            });
-          }),
-        {
-          maxAttempts: retryPolicy.maxAttempts,
-          baseDelayMs: retryPolicy.baseDelayMs,
-          maxDelayMs: retryPolicy.maxDelayMs,
-          jitterMs: retryPolicy.jitterMs,
-          isRetryable: isRecoverableError,
-        },
-      );
-    },
+    runStageCommand: (input) =>
+      runSessionCommand(input.cwd, input.command, input.promptOverride),
     runImplementationLoop: (options) => runWorkspaceLoop(options),
+    beforeImplementation: ({ root }) =>
+      runPickupAtBoundary({
+        root,
+        execute: (cwd) => runSessionCommand(cwd, PICKUP_COMMAND),
+      }),
     readWorkspace: (planToRead, orderStartStage) => {
       // The implementation group is entered with the published order, so the
       // same sidecar gate the default path runs applies here too.

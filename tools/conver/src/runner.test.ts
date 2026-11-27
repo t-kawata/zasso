@@ -165,6 +165,17 @@ function emptyRecorded(): Recorded {
   return { sessions: [], commands: [], phases: [], stops: [], boundaries: [] };
 }
 
+/** Run a case whose expected failure log would otherwise reach the test output. */
+async function silently<T>(fn: () => Promise<T>): Promise<T> {
+  const original = process.stderr.write;
+  process.stderr.write = (() => true) as typeof process.stderr.write;
+  try {
+    return await fn();
+  } finally {
+    process.stderr.write = original;
+  }
+}
+
 // [::TICKET::] PX-403, PX-404, PX-413 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-403|PX-404|PX-413) --for-spec --no-implementation-order`.
 function deps(
   fixture: Fixture,
@@ -402,6 +413,96 @@ describe("runPackageLoop — strict order and cwd", () => {
       /boom/,
     );
     assert.deepStrictEqual(calls, ["start:/make-ticket", "end"]);
+  });
+
+  it("runs pickup at the workspace root immediately before epush", async () => {
+    const fixture = writeFixture(tickets([{ id: 0, tickets: [{ id: 1, status: "todo" }] }]));
+    const recorded = emptyRecorded();
+    const roots: string[] = [];
+    await runPackageLoop(
+      fixture.packageEntry,
+      options({ resolveEvery: 1, pushEnabled: true }),
+      deps(fixture, recorded, advanceStatus, {
+        runPickup: async (root) => {
+          roots.push(root);
+          recorded.commands.push({
+            command: "/pickup-conver-update-candidates",
+            escalationLevel: 0,
+          });
+        },
+        pickupAvailability: () => ({ ok: true }),
+      }),
+    );
+
+    assert.deepStrictEqual(roots, ["/ws"]);
+    const commands = recorded.commands.map((entry) => entry.command);
+    const pickupIndex = commands.indexOf("/pickup-conver-update-candidates");
+    const epushIndex = commands.indexOf("/epush-branch");
+    assert.ok(pickupIndex >= 0, `commands: ${commands.join(", ")}`);
+    assert.ok(epushIndex >= 0, `commands: ${commands.join(", ")}`);
+    assert.ok(pickupIndex < epushIndex);
+  });
+
+  it("does not run pickup when push is disabled", async () => {
+    const fixture = writeFixture(tickets([{ id: 0, tickets: [{ id: 1, status: "todo" }] }]));
+    const recorded = emptyRecorded();
+    let called = false;
+    await runPackageLoop(
+      fixture.packageEntry,
+      options({ resolveEvery: 1, pushEnabled: false }),
+      deps(fixture, recorded, advanceStatus, {
+        runPickup: async () => {
+          called = true;
+        },
+        pickupAvailability: () => ({ ok: true }),
+      }),
+    );
+
+    assert.strictEqual(called, false);
+    assert.ok(!recorded.commands.some((entry) => entry.command === "/epush-branch"));
+  });
+
+  it("continues into epush when pickup fails", async () => {
+    const fixture = writeFixture(tickets([{ id: 0, tickets: [{ id: 1, status: "todo" }] }]));
+    const recorded = emptyRecorded();
+    await silently(() =>
+      runPackageLoop(
+        fixture.packageEntry,
+        options({ resolveEvery: 1, pushEnabled: true }),
+        deps(fixture, recorded, advanceStatus, {
+          runPickup: async () => {
+            throw new Error("pickup crashed");
+          },
+          pickupAvailability: () => ({ ok: true }),
+        }),
+      ),
+    );
+
+    assert.ok(recorded.commands.some((entry) => entry.command === "/epush-branch"));
+  });
+
+  it("skips pickup when it is unavailable and still pushes", async () => {
+    const fixture = writeFixture(tickets([{ id: 0, tickets: [{ id: 1, status: "todo" }] }]));
+    const recorded = emptyRecorded();
+    let called = false;
+    await silently(() =>
+      runPackageLoop(
+        fixture.packageEntry,
+        options({ resolveEvery: 1, pushEnabled: true }),
+        deps(fixture, recorded, advanceStatus, {
+          runPickup: async () => {
+            called = true;
+          },
+          pickupAvailability: () => ({
+            ok: false,
+            reason: "upstream-not-configured",
+          }),
+        }),
+      ),
+    );
+
+    assert.strictEqual(called, false);
+    assert.ok(recorded.commands.some((entry) => entry.command === "/epush-branch"));
   });
 
   it("does not move to the next ticket before the first is reviewed", async () => {
