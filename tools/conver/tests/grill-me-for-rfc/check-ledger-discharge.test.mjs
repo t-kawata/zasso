@@ -14,6 +14,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 const DISCHARGE_GATE = path.join(process.cwd(), '.claude/scripts/grill-me-for-rfc/check-ledger-discharge.js');
+const DISCHARGE_READER = path.join(process.cwd(), '.claude/scripts/grill-me-for-rfc/lib/ledger-discharge-reader.mjs');
 const LEDGER_HEADER = '| Unit | Kind | Owner | RFC location | Ground |';
 
 /** A ledger appendix as the parser requires it: canonical, headed, with resolving rows. */
@@ -52,6 +53,7 @@ function workspaceWith(units, { rfc = null, packageName = 'pkg-a' } = {}) {
   return root;
 }
 
+// [::TICKET::] PX-460 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-460 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-261, PX-263 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-261|PX-263) --for-spec --no-implementation-order`.
 function runDischarge(root) {
   const result = spawnSync(process.execPath, [DISCHARGE_GATE, root], { encoding: 'utf8' });
@@ -155,7 +157,11 @@ test('C006 a missing argument is refused with the usage line and exit 1', () => 
 });
 
 test('C006 the ledger is parsed by the slice own reader and not by a second implementation', () => {
-  const source = fs.readFileSync(DISCHARGE_GATE, 'utf8');
+  // The reader moved to a lib so the pipeline marks can import it without executing the
+  // gate; the invariant is about the pipeline, so both files are read as one source.
+  const source = [DISCHARGE_GATE, DISCHARGE_READER]
+    .map((file) => fs.readFileSync(file, 'utf8'))
+    .join('\n');
 
   assert.match(source, /readDistributionLedger/, 'the gate reads the slice parser');
   assert.doesNotMatch(source, /COMPOSITION_CHECK_PATTERN|LEDGER_COLUMNS/, 'the gate does not restate the ledger rules');

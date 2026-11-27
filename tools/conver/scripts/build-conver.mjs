@@ -60,6 +60,7 @@ function parseArguments(argv) {
   return options;
 }
 
+// [::TICKET::] PX-460 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-460 --for-spec --no-implementation-order`.
 async function main() {
   const options = parseArguments(process.argv.slice(2));
   const currentVersion = readVersionFile(options.versionFile);
@@ -93,6 +94,12 @@ async function main() {
     format: "esm",
     minify: true,
     logLevel: "silent",
+    // Some shared .claude scripts are CommonJS and call require('node:os') and friends.
+    // An ESM bundle has no require of its own, so esbuild's shim throws unless a real one
+    // is in scope; it also makes any relative require resolve beside the installed bundle.
+    banner: {
+      js: "import { createRequire as __converCreateRequire } from 'node:module'; const require = __converCreateRequire(import.meta.url);",
+    },
     define: {
       __CONVER_VERSION__: JSON.stringify(`v${targetVersion}`),
     },

@@ -7,6 +7,13 @@
 import { readFileSync } from "node:fs";
 import type { WorkspaceModel } from "../workspace.js";
 import { isTerminalStatus } from "../ticket-status.js";
+import { createOnceReporter, readStageTokens } from "./stage-progress.js";
+
+// A workspace that cannot yield the workspacify model leaves the header on ticket
+// phases; the failure is reported once so a five-second poll cannot flood stderr.
+const reportStageReadFailure = createOnceReporter((message) => {
+  process.stderr.write(`[conver] stage progress read failed: ${message}\n`);
+});
 
 // [::TICKET::] PX-404 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-404 --for-spec --no-implementation-order`.
 export interface ProgressTicket {
@@ -21,10 +28,16 @@ export interface ProgressPhase {
 }
 
 // [::TICKET::] PX-404 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-404 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-460 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-460 --for-spec --no-implementation-order`.
 export interface ProgressPackage {
   name: string;
   path: string;
   phases: ProgressPhase[];
+  /**
+   * Compact workspacify stage tokens for the row, in FIELD_SEQUENCE order. Absent when
+   * the workspacify model could not be read, which keeps the row on ticket phases alone.
+   */
+  stages?: readonly string[];
 }
 
 // [::TICKET::] PX-404 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-404 --for-spec --no-implementation-order`.
@@ -98,6 +111,7 @@ function parsePackage(name: string, path: string, text: string): ProgressPackage
  * Read every package's Tickets.json in workspace order. The injected reader
  * makes the snapshot deterministic in tests.
  */
+// [::TICKET::] PX-460 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-460 --for-spec --no-implementation-order`.
 export function readProgressSnapshot(
   workspace: WorkspaceModel,
   read: (ticketsPath: string) => string = defaultRead,
@@ -115,7 +129,31 @@ export function readProgressSnapshot(
       throw new ProgressReadError(packageEntry.ticketsPath, error);
     }
   });
-  return { packages };
+  // The stage tokens live beside the ticket phases so every caller of the snapshot
+  // gets one header shape; a workspace without a root simply carries no tokens.
+  const tokens = typeof workspace.root === "string" && workspace.root.length > 0
+    ? readStageTokens(workspace, reportStageReadFailure)
+    : new Map<string, string[]>();
+  return attachStageTokens({ packages }, tokens);
+}
+
+/**
+ * Attach the stage tokens to each package by relative path, returning a new snapshot.
+ *
+ * Mapping by path and not by display name keeps a renamed package from inheriting
+ * another package's stages. A package without tokens keeps its row exactly as it was.
+ */
+// [::TICKET::] PX-460 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-460 --for-spec --no-implementation-order`.
+export function attachStageTokens(
+  snapshot: ProgressSnapshot,
+  tokensByPath: ReadonlyMap<string, readonly string[]>,
+): ProgressSnapshot {
+  return {
+    packages: snapshot.packages.map((packageEntry) => {
+      const stages = tokensByPath.get(packageEntry.path);
+      return stages === undefined ? packageEntry : { ...packageEntry, stages };
+    }),
+  };
 }
 
 /** Floor percent of reviewed tickets in one package. */

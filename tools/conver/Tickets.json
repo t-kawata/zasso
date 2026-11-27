@@ -72479,6 +72479,163 @@
           "rfcDiscrepancies": [],
           "completedAt": "2026-11-27",
           "reviewed_at": "2026-11-27T07:04:20.940Z"
+        },
+        {
+          "id": 460,
+          "phaseId": -1,
+          "status": "reviewed",
+          "title": "Show workspacify pipeline progress in the conver header from the shared workspacify-order logic",
+          "specPath": "~/shyme/zasso/tools/conver/specs/PX-460.md",
+          "background": "### Goal\nShow, on each package row of the conver fixed progress header, the workspacify pipeline's ten stage fields (wtr, wal, edu, exp, gri, seq, smo, gra, bou, spl) as a compact bracket before the PX/P ticket phases. The presence decision and every execution count must come from the same workspacify-order library that `.claude/scripts/workspacify-order/run.mjs` prints, not from a second reader.\n\n### Purpose\nconver already shows per-ticket implementation progress (PX and P phases plus a percent). It does not show how far the upstream workspacify pipeline reached for that package. A reader should see both on one row: the stage bracket, then the ticket phases.\n\n### Motivation\nThe user asked for the conver header to display the workspacify stages in the shape `[W,W,E12,E,G2,S2,S156,G2,B2,S4]`, where the digits are the same execution counts that workspacify-order prints after `:`. The user also requires that the display decision and the counts be shared with, or identical to, workspacify-order.\n\n### Constraints\n- Single source: the per-package cells must be produced by the workspacify-order library; conver must not re-implement presence probes or counter readers.\n- Numbers: exactly the values workspacify-order prints after `:` (EDU, EXP, GRI, SEQ, SMO, GRA, BOU, SPL). wtr, wal and exp carry no number.\n- Position: the bracket sits immediately before the PX/P phases on the same row.\n- Fault tolerance: if the workspacify model cannot be built, omit the bracket and keep the existing header; the loop must not stop.\n- The dashboard stays read-only and keeps the percent column aligned.\n- No new dependency, CLI argument or configuration.",
+          "scope": [
+            "**Scope of changes:**\n- `.claude/scripts/workspacify-order/lib/render.mjs`: add canonical label constants for the four fields whose labels are currently literals (`EDU`, `GRI`, `SEQ`, `SMO`), export `PIPELINE_LABELS` (key -> label) and `readPipelineCells(model, id)` built on the existing private `cellFor`. Each returned cell is `{ key, label, glyph, count, present, unknownCount }` in `FIELD_SEQUENCE` order. The existing text renderer keeps its bytes unchanged.\n- `src/progress/stage-progress.ts` (new): call `loadWorkspace(root)` and `buildModel({ root, ...loaded })`, map each conver package to its model id by relative path, and turn the shared cells into compact tokens. Catch every failure and return an empty map.\n- `src/progress/model.ts`: add optional `stages?: readonly string[]` to `ProgressPackage`, and an `attachStageTokens(snapshot, tokensByPath)` pure function that returns a new snapshot. `readProgressSnapshot` keeps its current signature and behavior.\n- `src/progress/layout.ts`: prepend one stage block `[W,W,E12,E,G2,S2,S156,G2,B2,S4]` to each row's phase blocks so it is drawn before PX/P and is fitted first by the existing width budget.\n- `src/progress/dashboard.ts`: no API change; it already receives `readSnapshot` from conver. The stage wiring lives in the reader.\n- `src/conver.ts`: compose `readProgressSnapshot(model)` with `readStageTokens(model, reportOnce)` so the dashboard snapshot carries the stages; log the stage failure at most once.\n- `src/shared-modules.d.ts`: declare `PIPELINE_LABELS` and `readPipelineCells` plus the model/workspace exports conver already uses.\n- Tests: add the unit and integration coverage named below.\n- `README.md`: record that the conver header now shows the workspacify stage bracket sourced from workspacify-order.",
+            "**Out of scope (intentionally excluded):**\n- Changing the workspacify-order command's own output or layout. Its cells are reused, not reformatted there.\n- Per-stage colours or glyphs in the conver header; the compact bracket is plain text first.\n- Adding a new CLI flag or configuration for the bracket.\n- Reworking conver's ticket-phase display, percent calculation or NOW row.\n- Editing installed copies in this ticket; the installer owns propagation.",
+            "**Affected areas:**\n- The fixed header for every workspace package; rows grow by the bracket width.\n- The dashboard poll now also builds the workspacify model, so reads grow beyond Tickets.json; the error path must stay non-fatal.\n- Bundle size: importing `levels.mjs` pulls the sequences-slice implementation-order and digest modules into `dist/conver.js`; the build must stay successful and the size growth is measured.\n- No security or data-format impact: the dashboard only reads existing manifests, status files and artifacts.\n- Terminal width: the bracket competes with phase blocks; the truncation policy is that the bracket is fitted first and phase blocks drop later."
+          ],
+          "testUnit": [
+            "UT: [Normal] C001 parity — build a synthetic workspace, read the cells through the shared workspacify-order `readPipelineCells` and through `src/progress/stage-progress.ts`; assert every package's token label and count equal the shared cell label and count, so presence and execution count have one source.",
+            "UT: [Normal] C002 format — a ten-cell package renders `[W,W,E12,E,G2,S2,S156,G2,B2,S4]` in FIELD_SEQUENCE order: the first letter of each label, the numeric count appended only when the cell text carries one, and no count for wtr, wal and exp.",
+            "UT: [Error] C004 degradation — when `loadWorkspace` or `buildModel` throws, `readStageTokens` returns an empty map, `renderHeader` still renders the PX/P phases and percent, no exception escapes, and the reporter callback fires at most once.",
+            "UT: [Boundary] C002 absent and unknown — a package missing a stage renders `-` in that position, and a present cell whose count is unknown renders the initial plus `?` (for example `S?`).",
+            "UT: [Boundary] C003 width — the bracket precedes the phase blocks, the percent column stays aligned across rows, and a narrow terminal drops whole phase blocks before the bracket and never cuts the percent or splits a token.",
+            "UT: [Invariant] C001 mapping — packages are matched between conver and workspacify-order by relative path, not by display name, and an unmatched package contributes no bracket rather than a wrong one.",
+            "UT: [Invariant] C003 header shape — the bracket contains exactly ten comma-separated tokens on every row that shows it.",
+            "UT: [Regression] the workspacify-order text renderer keeps its exact existing output for every existing fixture after the new export and label constants are added.",
+            "UT: [Contract] C001 precondition — conver builds the workspacify-order model with loadWorkspace and buildModel and reads each package cells through the shared exported readPipelineCells. C001 postcondition — every token label and count in the conver bracket equals the label and count of the same field in the shared workspacify-order cell for that package. C001 invariant — there is no second presence probe or counter reader in conver; presence and counts have one source.",
+            "UT: [Contract] C002 precondition — a shared cell carries a canonical label and an optional count, and the ten fields follow FIELD_SEQUENCE order. C002 postcondition — the token is the first letter of the label; the count is appended only when the cell text carries a numeric count; an absent cell is - and an unknown count is ?. C002 invariant — exactly ten comma-separated tokens appear in FIELD_SEQUENCE order whenever the bracket is shown.",
+            "UT: [Contract] C003 precondition — renderHeader receives stage tokens and phase blocks for a package and a terminal width. C003 postcondition — the bracket is drawn before the PX/P phase blocks and the percent column stays right-aligned across all package rows. C003 invariant — width truncation never cuts the percent column and never splits a token.",
+            "UT: [Contract] C004 precondition — the workspacify model build or the stage read throws for the current workspace. C004 postcondition — the snapshot carries no stage tokens, renderHeader still renders the ticket phases and percent, and no exception escapes the dashboard redraw. C004 invariant — the dashboard remains total and read-only on every failure path.",
+            "UT: [Acceptance] Happy path — each package row prints name [W,W,E12,E,G2,S2,S156,G2,B2,S4] PX [ ... ] P0 [ ... ] 67%, and every token count equals the number workspacify-order prints after : for the same workspace.",
+            "UT: [Acceptance] Error case — when the workspacify model cannot be built, the row prints no bracket and still prints the ticket phases and percent; the dashboard logs at most one line and continues.",
+            "UT: [Acceptance] Edge case — a missing stage prints -, an unknown count prints X?, a narrow terminal keeps the percent column aligned, and the bracket always has ten tokens when shown."
+          ],
+          "testIntegration": [
+            "IT: [Integration point] C001 shared logic — render the same synthetic workspace through workspacify-order's `buildModel`/`readPipelineCells` and through conver's `readProgressSnapshot` plus `readStageTokens`; assert the conver bracket tokens are derived from the identical cells.",
+            "IT: [Verification] C002/C003 end to end — a `ProgressDashboard` redraw against a workspace with all ten stages present writes header rows containing the navy background, the bracket, the PX/P phases and the right-aligned percent.",
+            "IT: [Verification] C004 downstream — a workspace without `WORKSPACIFY-TREE-MANIFEST.json` still redraws the ticket phases and the percent; the dashboard does not throw and the NOW row is unchanged.",
+            "IT: [Prerequisites] synthetic workspace fixtures created per test under a temporary directory, containing the tree manifest, allocate manifest, package Status.json files, stage artifacts and Tickets.json."
+          ],
+          "testExceptions": [],
+          "default_files": [
+            ".claude/scripts/workspacify-order/lib/display-width.mjs",
+            ".claude/scripts/workspacify-order/lib/pipeline-cells.mjs",
+            ".claude/scripts/workspacify-order/lib/levels.mjs",
+            ".claude/scripts/workspacify-order/lib/render.mjs",
+            ".claude/scripts/grill-me-for-rfc/lib/declaration-bindings.mjs",
+            ".claude/scripts/grill-me-for-rfc/lib/ledger-discharge-reader.mjs",
+            ".claude/scripts/grill-me-for-rfc/obligation-state.js",
+            ".claude/scripts/grill-me-for-rfc/check-obligation-coverage.js",
+            ".claude/scripts/grill-me-for-rfc/check-ledger-discharge.js",
+            ".claude/scripts/lib/path-utils.js",
+            "scripts/build-conver.mjs",
+            "src/progress/stage-progress.ts",
+            "src/progress/stage-progress.test.ts",
+            "src/progress/model.ts",
+            "src/progress/layout.ts",
+            "src/progress/layout.test.ts",
+            "src/progress/dashboard.test.ts",
+            "src/shared-modules.d.ts",
+            "tests/grill-me-for-rfc/check-ledger-discharge.test.mjs",
+            "Makefile",
+            "README.md"
+          ],
+          "acceptanceCriteria": [
+            "[Happy path] Each package row prints `name  [W,W,E12,E,G2,S2,S156,G2,B2,S4]  PX [ ... ] P0 [ ... ] ...  67%`, and every token's count equals the number workspacify-order prints after `:` for the same workspace.",
+            "[Error case] When the workspacify model cannot be built, the row prints no bracket and still prints the ticket phases and percent; the dashboard logs at most one line and continues.",
+            "[Edge case] A missing stage prints `-`, an unknown count prints `X?`, a narrow terminal keeps the percent column aligned, and the bracket always has ten tokens when shown."
+          ],
+          "contracts": [
+            {
+              "id": "C001",
+              "sourceEdge": "workspacify-order model -> conver header cells",
+              "precondition": "conver builds the workspacify-order model with loadWorkspace and buildModel and reads each package's cells through the shared exported `readPipelineCells`.",
+              "postcondition": "Every token label and count in the conver bracket equals the label and count of the same field in the shared workspacify-order cell for that package.",
+              "invariant": "There is no second presence probe or counter reader in conver; presence and counts have one source."
+            },
+            {
+              "id": "C002",
+              "sourceEdge": "shared cell -> compact token",
+              "precondition": "A shared cell carries a canonical label and an optional count, and the ten fields follow FIELD_SEQUENCE order.",
+              "postcondition": "The token is the first letter of the label; the count is appended only when the cell text carries a numeric count; an absent cell is `-` and an unknown count is `?`.",
+              "invariant": "Exactly ten comma-separated tokens appear in FIELD_SEQUENCE order whenever the bracket is shown."
+            },
+            {
+              "id": "C003",
+              "sourceEdge": "bracket -> fixed header row",
+              "precondition": "`renderHeader` receives stage tokens and phase blocks for a package and a terminal width.",
+              "postcondition": "The bracket is drawn before the PX/P phase blocks and the percent column stays right-aligned across all package rows.",
+              "invariant": "Width truncation never cuts the percent column and never splits a token."
+            },
+            {
+              "id": "C004",
+              "sourceEdge": "workspacify read failure -> dashboard continuity",
+              "precondition": "The workspacify model build or the stage read throws for the current workspace.",
+              "postcondition": "The snapshot carries no stage tokens, `renderHeader` still renders the ticket phases and percent, and no exception escapes the dashboard redraw.",
+              "invariant": "The dashboard remains total and read-only on every failure path."
+            }
+          ],
+          "notes": "- Implementation steps: 1) add the canonical label constants, `PIPELINE_LABELS` and `readPipelineCells` in workspacify-order render.mjs without changing rendered bytes; 2) add `stages` and `attachStageTokens` in model.ts; 3) add stage-progress.ts with path mapping and fault tolerance; 4) prepend the stage block in layout.ts and let the existing fitter drop phase blocks; 5) compose the reader in conver.ts with a once-only reporter; 6) declare the shared exports; 7) reword the layout.ts:245 prose comment so the incomplete-implementation scanner no longer reads it as commented-out code; 8) run the impact-set tests and rebuild the bundle.\n- Risks: importing `levels.mjs` pulls sequences-slice modules into the bundle, so size must be measured after the build; the 5-second poll now re-reads stage manifests and status files, so the poll cost must be measured and, if needed, the interval kept unchanged while the immutable manifests are read once.\n- Caveats: esbuild inlines the shared lib into `dist/conver.js`, so the installed bundle and the installed workspacify-order lib match at install time but drift if only one side is edited; a parity test pins the source-level identity. The bracket is plain text; colours are a later change.\n- Open items: whether the bracket should be colour-coded per stage; whether the stage model should be cached across polls.\n- Future improvements: cache the tree/allocate manifests and re-read only counters and verdicts per poll; add stage colours once the plain bracket is proven.\n- Law: not applicable — the changed paths are `src/progress/**`, `src/conver.ts`, `.claude/scripts/workspacify-order/lib/render.mjs` and `README.md`; none matches `crates/**` unit role `rest|websocket|cli|grpc|mcp|a2a`, so `rust-interface-law` is skipped.\n- Crime scan: 0 open records. Stub scan: 0 stubs in `src`. Incomplete-implementation scan: one false positive at `src/progress/layout.ts:245` (a prose comment beginning `if necessary and attach...`), reworded in this ticket.\n\nImplementation summary (PX-460):\n- Changed files: .claude/scripts/workspacify-order/lib/{pipeline-cells.mjs,display-width.mjs,levels.mjs,render.mjs}; .claude/scripts/grill-me-for-rfc/lib/{declaration-bindings.mjs,ledger-discharge-reader.mjs}; .claude/scripts/grill-me-for-rfc/{obligation-state.js,check-obligation-coverage.js,check-ledger-discharge.js}; .claude/scripts/lib/path-utils.js; scripts/build-conver.mjs; src/progress/{stage-progress.ts,stage-progress.test.ts,model.ts,layout.ts,layout.test.ts,dashboard.test.ts}; src/shared-modules.d.ts; src/conver.ts; tests/grill-me-for-rfc/check-ledger-discharge.test.mjs; Makefile; README.md.\n- Key changes: shared readPipelineCells/readPipelineStageMarks; conver stage bridge with path mapping and one-shot failure report; bracket drawn before PX/P and fitted first; pure readers extracted from the two gate CLIs; bundle-safe CommonJS requires; options-object refactors.\n- Tests: conver progress/impact set 99 pass; workspacify-order render + explain-seed + grill impact set 175 pass; 0 fail, 0 skipped. Real doors workspace parity: 8/8 package rows identical to workspacify-order.\n- Quality checks: 0 issues. Stub scan 0. Crime scan 0. Incomplete-implementation scan 0 in changed files.\n- Build: dist/conver.js builds and --version runs. Bundle grew from the shared workspacify-order readers (1,704,394 bytes).\n- Annotations: ambiguous markers resolved in 7 files; false provenance from pre-existing unrelated changes removed; only PX-460 work annotated.\n- Installed copies: .claude/scripts/conver/conver.js copies remain at the previous revision and drift until re-installed.\n\nReview report (2026-11-27):\n- Static quality check: passed (0 issues).\n- Translatability: no issues; no debug output, no generic variable names, renderRowContent is one options object.\n- Annotations: verify exit 0; zero AMBIGUOUS markers. The isolated review tree contained only PX-460 changes.\n- Tests: conver progress/impact 99 pass; workspacify-order + explain-seed + grill 175 pass; 0 fail, 0 skipped.\n- Build: dist/conver.js builds and --version runs.\n- Contracts: 100% (1/1). Targets verified empty. reverify findings 0, certificate written.\n- Working-tree hygiene: a pre-existing unrelated WIP (watcher stopped state, cli/stage-engine changes, three installed bundles) was preserved; review ran against HEAD + PX-460 only. WIP files were not committed.\n- Final design note: readProgressSnapshot reads the stage tokens itself; src/conver.ts is unchanged in this ticket.",
+          "invariants": "- [Normal establishment] When the workspacify model builds, every package row that has stage tokens prints exactly ten comma-separated tokens in FIELD_SEQUENCE order before the PX/P phases.\n- [Error invariant] Any failure in loadWorkspace, buildModel or the cell read yields no tokens, never throws out of the dashboard, and leaves the ticket phases and percent rendering.\n- [Internal state invariant] The stage reader keeps no cache of its own; presence and counts come only from the shared workspacify-order `readPipelineCells`, and the returned snapshot is a new value (no in-place mutation).\n- [Boundary invariant] A shown bracket has exactly ten tokens, an absent stage is `-`, an unknown count is `?`, the percent column stays aligned, and truncation never splits a token.",
+          "instrumentation": "Static quality check: passed\nTranslatability: no issues\nTests: conver 99 pass; shared impact 175 pass",
+          "investigation": "- conver progress path: `src/progress/model.ts:74-119` parses each package's Tickets.json into phases; `packagePercent` at `model.ts:121-127`; `symbolForStatus` at `model.ts:129-144`. `src/progress/dashboard.ts:231-239` calls the injected `readSnapshot` each poll; `dashboard.ts:241-346` composes the fixed header and DECSTBM write. `src/conver.ts:390-405` constructs the dashboard with `readSnapshot: () => readProgressSnapshot(model)` and `conver.ts:447` starts it.\n- conver header path: `src/progress/layout.ts:269-321` `renderHeader` builds rows from `phaseBlocks` (`layout.ts:165-169`) and `renderRowContent` (`layout.ts:196-267`); the percent column is reserved first (`layout.ts:297-302`) and phase blocks are fitted into the remainder.\n- Shared precedent: `src/stage-counters.ts:7-17` already imports `../.claude/scripts/workspacify-order/lib/counters.mjs` and `workspace.mjs`; `src/shared-modules.d.ts:8-21` declares that `.mjs` boundary; `src/stage-counters.test.ts:13` imports the same `.mjs` in tests. esbuild (`scripts/build-conver.mjs:96-108`) bundles the shared module into `dist/conver.js`.\n- workspacify-order model: `lib/workspace.mjs:306` exports `loadWorkspace(root)`; `lib/levels.mjs:508` exports `buildModel({ root, treeManifest, allocateManifest })`; the model carries `rootManifests` (`levels.mjs:583-586`), `rootCounters` edu/smo (`levels.mjs:577-580`), `grillGenerations` (`levels.mjs:587-589`), `distributionGenerations` (`levels.mjs:590-592`), graph/boundify/split presence sets (`levels.mjs:593-601`) and their generations (`levels.mjs:602-613`).\n- workspacify-order cells: `FIELD_SEQUENCE` is `['wtr','wal','edu','exp','gri','seq','smo','gra','bou','spl']` (`lib/render.mjs:59`); `cellFor` (`render.mjs:195-209`) dispatches to `educationCell` (`render.mjs:140-142`, label `EDU:<n>`), `explanationCell` (`render.mjs:145-147`, label `EXP`, no count), `grillCell` (`render.mjs:150-154`, `GRI:<n>`), `sequenceCell` (`render.mjs:157-165`, `SEQ:<n>` or `SEQ:?`), `smoothCell` (`render.mjs:168-170`, `SMO:<n>`), `artifactCell` for graph/boundify/split (`render.mjs:134-137`, `GRA/BOU/SPL:<n>` or `?`), and `manifestCell` for wtr/wal (`render.mjs:180-192`, label only).\n- Counter semantics: the number after `:` is the execution/generation count (user-confirmed). `readDistributionGeneration` (`lib/counters.mjs:179-184`) reads `distributionGeneration` from the package `Status.json`, falling back to one when the RFC carries the distribution map; `seq` is produced inside `/grill-me-for-rfc` and has no separate slash command.\n- Package identity: conver's `WorkspacePackage` carries `name` and `path` relative to the root (`src/workspace.ts:58-66`); the workspacify-order model exposes `packages` with `id`, `name` and `path`. Mapping by path is stable across both models; name is a fallback only.\n- Existing tests: `dist/progress/{layout,dashboard,model}.test.js` cover header text, percent alignment, navy background and DECSTBM; `tests/workspacify-order/unit/render*.test.mjs` cover the cell text and grid. The new parity test must read the same fixtures through both paths.",
+          "boyScoutPlan": "- Extract the four literal labels `EDU`, `GRI`, `SEQ`, `SMO` into named constants and build `PIPELINE_LABELS` from the existing label constants, so the compact token derivation cannot drift from the rendered label.\n- Export `readPipelineCells(model, id)` and keep `cellFor` as the single resolver; conver must not parse rendered text or repeat probes.\n- Name the compact formatter and the path mapper as verb phrases (`readStageTokens`, `attachStageTokens`, `formatStageToken`) and keep each to one responsibility.\n- Replace the repeated `model.packages` path lookup with a named map builder so the mapping rule is stated once.\n- Keep error handling explicit: catch the model build, report once, return an empty map; never swallow into a wrong bracket.\n- Add a parity test that fails when the two paths diverge, because a passing single-path test cannot distinguish shared logic from a copy.",
+          "created_at": "2026-11-27",
+          "updated_at": "2026-11-27",
+          "targetStubs": "verified_empty",
+          "targetCrimes": "verified_empty",
+          "made_at": "2026-11-27T07:42:33.639Z",
+          "planTestCode": [
+            "UT: [Normal] C001 parity — shared cells and conver tokens agree\n```ts\n// @verifies C001\nconst sharedModel = buildModel({ root, ...loadWorkspace(root) });\nconst sharedCells = readPipelineCells(sharedModel, sharedModel.packages[0].id);\nconst tokens = readStageTokens(converWorkspace(root)).get(\"pkg-a\");\nassert.deepEqual(tokens, sharedCells.map(formatStageToken));\nassert.deepEqual(\n  sharedCells.map((cell) => [cell.label, cell.count]),\n  [[\"WTR\", null], [\"WAL\", null], [\"EDU\", 2], [\"EXP\", null], [\"GRI\", 3], [\"SEQ\", 1], [\"SMO\", 4], [\"GRA\", 1], [\"BOU\", 2], [\"SPL\", 5]],\n);\n```",
+            "UT: [Normal] C002 format — compact tokens in FIELD_SEQUENCE order\n```ts\n// @verifies C002\nconst tokens = formatStageTokens(cellsFixture);\nassert.equal(`[${tokens.join(\",\")}]`, \"[W,W,E12,E,G2,S2,S156,G2,B2,S4]\");\nassert.equal(tokens.length, 10);\nassert.equal(formatStageToken({ key: \"exp\", label: \"EXP\", present: true, count: null, unknownCount: false }), \"E\");\n```",
+            "UT: [Boundary] C002 absent and unknown counts\n```ts\n// @verifies C002\nassert.equal(formatStageToken({ key: \"spl\", label: \"SPL\", present: false, count: null, unknownCount: false }), \"-\");\nassert.equal(formatStageToken({ key: \"seq\", label: \"SEQ\", present: true, count: null, unknownCount: true }), \"S?\");\nassert.equal(formatStageToken({ key: \"gra\", label: \"GRA\", present: true, count: 12, unknownCount: false }), \"G12\");\n```",
+            "UT: [Boundary] C003 width — bracket precedes phases and percent stays aligned\n```ts\n// @verifies C003\nconst lines = renderHeader(snapshotWithStages, { terminalWidth: 80, color: false });\nassert.match(lines[0], /\\[W,W,E12,E,G2,S2,S156,G2,B2,S4\\] PX \\[/);\nassert.equal(lines[0].indexOf(\"%\"), lines[1].indexOf(\"%\"));\nconst narrow = renderHeader(snapshotWithStages, { terminalWidth: 40, color: false });\nassert.ok(narrow.every((line) => line.endsWith(\"%\")));\n```",
+            "UT: [Error] C004 degradation — a failed model build yields no tokens and no throw\n```ts\n// @verifies C004\nconst reports: string[] = [];\nconst tokens = readStageTokens({ root: rootWithoutManifests, packages: packagesFixture }, (message) => reports.push(message));\nassert.equal(tokens.size, 0);\nassert.equal(reports.length, 1);\nconst lines = renderHeader(snapshotWithoutStages, { terminalWidth: 80, color: false });\nassert.ok(lines[0].includes(\"P0 [ x ]\"));\nassert.ok(!lines[0].includes(\"[W,\"));\n```",
+            "UT: [Invariant] C001 mapping — path identity, not display name\n```ts\n// @verifies C001\nconst tokens = readStageTokens(workspaceFixture, () => {});\nassert.ok(tokens.has(\"crates/a\"));\nconst renamed = readStageTokens({ ...workspaceFixture, packages: [{ ...packageFixture, name: \"alias\" }] }, () => {});\nassert.ok(renamed.has(packageFixture.path));\n```",
+            "UT: [Regression] the existing workspacify-order plan bytes are unchanged\n```ts\ntest(\"renderPlan keeps the recorded bytes\", () => {\n  const plan = renderPlan(modelFixture);\n  assert.equal(plan, recordedPlan);\n});\n```"
+          ],
+          "planned_at": "2026-11-27T07:43:36.302Z",
+          "startedAt": "2026-11-27",
+          "changes": [
+            {
+              "before": "The conver header read only each package's Tickets.json; no workspacify stage appeared on a row.",
+              "after": "Each row renders [W,W,E12,E,G2,S2,S156,G2,B2,S4] before the PX/P phases, sourced from the shared workspacify-order cells.",
+              "description": "Header stage bracket"
+            },
+            {
+              "before": "cellFor and the stage labels were private to workspacify-order render.mjs.",
+              "after": "pipeline-cells.mjs exports readPipelineCells and readPipelineStageMarks; render.mjs re-exports them and keeps its bytes.",
+              "description": "Single shared cell source"
+            },
+            {
+              "before": "buildModel computed the stage marks inline and imported the implementation-order machinery.",
+              "after": "buildModel delegates the marks to readPipelineStageMarks; displayWidth moved to display-width.mjs; unused imports trimmed.",
+              "description": "Lightweight shared model"
+            },
+            {
+              "before": "readProgressSnapshot returned ticket phases only, and conver.ts had to compose a stage reader into the dashboard callback.",
+              "after": "readProgressSnapshot attaches the stage tokens itself by package path; conver.ts is unchanged.",
+              "description": "Snapshot owns the stage tokens"
+            },
+            {
+              "before": "obligation-state.js imported two CLI scripts, so bundling conver executed their entry points.",
+              "after": "declaration-bindings.mjs and ledger-discharge-reader.mjs hold the pure readers; the gates keep their CLI.",
+              "description": "Side-effect-free shared readers"
+            },
+            {
+              "before": "Bundling a CommonJS reader left require(\"os\") dynamic and threw in the ESM bundle.",
+              "after": "path-utils.js uses node:os/node:path and build-conver.mjs adds a createRequire banner.",
+              "description": "Bundle-safe CommonJS boundary"
+            },
+            {
+              "before": "renderRowContent took six positional parameters.",
+              "after": "renderRowContent takes one options object.",
+              "description": "Readability refactor"
+            }
+          ],
+          "done_at": "2026-11-27T07:58:01.884Z",
+          "rfcDiscrepancies": [],
+          "completedAt": "2026-11-27",
+          "reviewed_at": "2026-11-27T08:02:55.804Z"
         }
       ]
     },

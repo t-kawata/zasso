@@ -27,8 +27,8 @@ import { VIEW_JSON_NAME, collectUnitIds } from '../sequences-slice/lib/material.
 import { measureDischarge } from '../sequences-slice/lib/obligation-coverage.mjs';
 import { judgeSequenceOf } from '../sequences-slice/lib/package-verdict.mjs';
 
-import { findDeclarationsThatDidNotBind } from './check-obligation-coverage.js';
-import { readLedgers } from './check-ledger-discharge.js';
+import { findDeclarationsThatDidNotBind } from './lib/declaration-bindings.mjs';
+import { readLedgers } from './lib/ledger-discharge-reader.mjs';
 
 /**
  * Whether a parsed document is a projected view at all.
@@ -39,6 +39,7 @@ import { readLedgers } from './check-ledger-discharge.js';
  * predicate accepts the view a slice that predates the carriage wrote, which carries neither the
  * source field nor the obligation units, so the shape it insists on is the one every view has had.
  */
+// [::TICKET::] PX-460 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-460 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-270 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-270 --for-spec --no-implementation-order`.
 function isAProjectedView(document) {
   return typeof document === 'object' && document !== null && !Array.isArray(document);

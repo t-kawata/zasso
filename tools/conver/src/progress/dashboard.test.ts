@@ -522,3 +522,64 @@ describe("ProgressDashboard NOW row", () => {
     assert.strictEqual(timer.callback, null);
   });
 });
+
+// [::TICKET::] PX-460 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-460 --for-spec --no-implementation-order`.
+describe("stage bracket in the fixed header", () => {
+  const FULL = "[W,W,E12,E,G2,S2,S156,G2,B2,S4]";
+
+// [::TICKET::] PX-460 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-460 --for-spec --no-implementation-order`.
+  function staged(count: number): ProgressSnapshot {
+    return {
+      packages: Array.from({ length: count }, (_, index) => ({
+        name: `pkg-${index}`,
+        path: `crates/pkg-${index}`,
+        phases: [{ id: 0, tickets: [{ id: 1, status: "todo" }] }],
+        stages: index === 0
+          ? ["W", "W", "E12", "E", "G2", "S2", "S156", "G2", "B2", "S4"]
+          : ["W", "W", "-", "-", "-", "-", "-", "-", "-", "-"],
+      })),
+    };
+  }
+
+  it("C002/C003 paints the bracket on the navy header", () => {
+    const previousLevel = chalk.level;
+    chalk.level = 3;
+    try {
+      const timer = fakeTimer();
+      const writes: string[] = [];
+      const dashboard = build({
+        isTty: true,
+        timer,
+        writes,
+        readSnapshot: () => staged(2),
+        columns: 120,
+        rows: 24,
+      });
+      dashboard.start();
+      const output = writes.join("");
+      assert.ok(output.includes("\x1b[48;2;11;31;58m"), "navy header background");
+      assert.ok(output.includes(FULL), "stage bracket");
+      dashboard.stop();
+    } finally {
+      chalk.level = previousLevel;
+    }
+  });
+
+  it("C004 keeps the ticket phases when no stage tokens are present", () => {
+    const timer = fakeTimer();
+    const writes: string[] = [];
+    const dashboard = build({
+      isTty: true,
+      timer,
+      writes,
+      readSnapshot: () => snapshot(2),
+      columns: 120,
+      rows: 24,
+    });
+    dashboard.start();
+    const output = writes.join("");
+    assert.ok(output.includes("P0 [ 1 ]"), "phase block");
+    assert.ok(!output.includes("[W,"), "no stage bracket");
+    dashboard.stop();
+  });
+});

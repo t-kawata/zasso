@@ -158,14 +158,33 @@ interface PhaseBlock {
 }
 
 /**
- * Return one package's own phases, ordered by id. Absent phases are not
- * fabricated: padding a block to a sibling package's width is what broke the
- * single-space contract between phases.
+ * The package's compact workspacify stage bracket, or null when it carries no tokens.
+ *
+ * The bracket is one block rather than ten, so the existing fitter drops it as a unit and
+ * a partial bracket can never reach the screen.
  */
-function phaseBlocks(packageEntry: ProgressPackage): PhaseBlock[] {
-  return [...packageEntry.phases]
+// [::TICKET::] PX-460 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-460 --for-spec --no-implementation-order`.
+function stageBlock(packageEntry: ProgressPackage): PhaseBlock | null {
+  const stages = packageEntry.stages;
+  if (stages === undefined || stages.length === 0) return null;
+  const text = `[${stages.join(",")}]`;
+  return { plain: text, colored: text };
+}
+
+/**
+ * Return one package's row blocks: the stage bracket first, then its own phases by id.
+ *
+ * Absent phases are not fabricated: padding a block to a sibling package's width is what
+ * broke the single-space contract between phases. The bracket leads so it is fitted
+ * before any phase block and the row keeps the pipeline context on a narrow terminal.
+ */
+// [::TICKET::] PX-460 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-460 --for-spec --no-implementation-order`.
+function rowBlocks(packageEntry: ProgressPackage): PhaseBlock[] {
+  const phases = [...packageEntry.phases]
     .sort((left, right) => left.id - right.id)
     .map((phase) => ({ plain: phasePlain(phase), colored: phaseColored(phase) }));
+  const stage = stageBlock(packageEntry);
+  return stage === null ? phases : [stage, ...phases];
 }
 
 /** Visible width of the phase area: blocks plus one separator between them. */
@@ -193,14 +212,19 @@ function isHighlighted(
  * Width math uses the plain name field; the painted field differs only by
  * zero-width SGR codes, so highlighting can never shift the percent column.
  */
-function renderRowContent(
-  name: string,
-  nameWidth: number,
-  blocks: readonly PhaseBlock[],
-  contentWidth: number,
-  color: boolean,
-  highlight: boolean,
-): string {
+// [::TICKET::] PX-460 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-460 --for-spec --no-implementation-order`.
+interface RowContentInput {
+  readonly name: string;
+  readonly nameWidth: number;
+  readonly blocks: readonly PhaseBlock[];
+  readonly contentWidth: number;
+  readonly color: boolean;
+  readonly highlight: boolean;
+}
+
+// [::TICKET::] PX-460 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-460 --for-spec --no-implementation-order`.
+function renderRowContent(input: RowContentInput): string {
+  const { name, nameWidth, blocks, contentWidth, color, highlight } = input;
   const namePadding = " ".repeat(Math.max(0, nameWidth - name.length));
   const nameFieldWidth = nameWidth + NAME_GAP.length;
   const paintName = (value: string): string =>
@@ -241,8 +265,8 @@ function renderRowContent(
       content += markerText;
       used += markerText.length;
     } else {
-      // A silent drop is worse than a compact marker. Reclaim the last phase
-      // if necessary and attach the marker directly.
+      // A silent drop is worse than a compact marker, so reclaim the last
+      // phase when needed and attach the marker directly.
       while (fitted.length > 0 && used + 1 > contentWidth) {
         const removed = fitted.pop()!;
         const separatorWidth = fitted.length === 0 ? 0 : 1;
@@ -282,7 +306,7 @@ export function renderHeader(
 
   const rows = snapshot.packages.map((packageEntry, index) => {
     const name = short.names[index] ?? packageEntry.name;
-    const blocks = phaseBlocks(packageEntry);
+    const blocks = rowBlocks(packageEntry);
     const percent = `${String(packagePercent(packageEntry)).padStart(PERCENT_WIDTH)}%`;
     return {
       name,
@@ -302,14 +326,14 @@ export function renderHeader(
   const contentWidth = Math.min(maximumContent, contentLimit);
 
   return rows.map((row) => {
-    const content = renderRowContent(
-      row.name,
+    const content = renderRowContent({
+      name: row.name,
       nameWidth,
-      row.blocks,
+      blocks: row.blocks,
       contentWidth,
-      options.color,
-      row.highlight,
-    );
+      color: options.color,
+      highlight: row.highlight,
+    });
     const line = `${content} ${row.percent}`;
     if (!options.color) return line;
     const backgroundPadding = Math.max(

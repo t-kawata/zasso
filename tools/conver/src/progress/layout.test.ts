@@ -519,3 +519,70 @@ describe("renderHeader short names", () => {
     assert.ok(lines[0]?.startsWith("crystal-core "));
   });
 });
+
+// [::TICKET::] PX-460 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-460 --for-spec --no-implementation-order`.
+describe("renderHeader stage bracket", () => {
+  const FULL = "[W,W,E12,E,G2,S2,S156,G2,B2,S4]";
+  const SPARSE = "[W,W,-,-,-,-,-,-,-,-]";
+
+// [::TICKET::] PX-460 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-460 --for-spec --no-implementation-order`.
+  function stagedSnapshot(): ProgressSnapshot {
+    const base = snapshot();
+    return {
+      packages: [
+        { ...base.packages[0]!, stages: ["W", "W", "E12", "E", "G2", "S2", "S156", "G2", "B2", "S4"] },
+        { ...base.packages[1]!, stages: ["W", "W", "-", "-", "-", "-", "-", "-", "-", "-"] },
+      ],
+    };
+  }
+
+  it("C003 draws the bracket before the PX/P phase blocks", () => {
+    const lines = renderHeader(stagedSnapshot(), { terminalWidth: 120, color: false });
+    assert.ok(lines[0]?.includes(`${FULL} P0 [`), lines[0]);
+    assert.ok(lines[1]?.includes(`${SPARSE} P0 [`), lines[1]);
+  });
+
+  it("C003 shows exactly ten comma-separated tokens", () => {
+    const lines = renderHeader(stagedSnapshot(), { terminalWidth: 120, color: false });
+    const bracket = /\[([^\]]+)\]/.exec(lines[0] ?? "")?.[1] ?? "";
+    assert.equal(bracket.split(",").length, 10);
+  });
+
+  it("C003 keeps the percent column aligned and the row inside the terminal", () => {
+    for (const terminalWidth of [120, 80, 56, 40, 20]) {
+      const lines = renderHeader(stagedSnapshot(), { terminalWidth, color: false });
+      assert.equal(lines[0]?.indexOf("%"), lines[1]?.indexOf("%"), `width ${terminalWidth}`);
+      for (const line of lines) {
+        assert.ok(line.length <= terminalWidth, `width ${terminalWidth}: ${line.length}`);
+        assert.ok(line.trimEnd().endsWith("%"), `width ${terminalWidth}: ${line}`);
+      }
+    }
+  });
+
+  it("C003 drops phase blocks before the bracket", () => {
+    const lines = renderHeader(stagedSnapshot(), { terminalWidth: 56, color: false });
+    assert.ok(lines[0]?.includes(FULL), lines[0]);
+    assert.ok(lines[0]?.includes("…"), lines[0]);
+    assert.ok(!lines[0]?.includes("P0 ["), lines[0]);
+  });
+
+  it("C003 color mode adds ANSI but strips to the same text", () => {
+    const previousLevel = chalk.level;
+    chalk.level = 1;
+    try {
+      const plain = renderHeader(stagedSnapshot(), { terminalWidth: 120, color: false });
+      const colored = renderHeader(stagedSnapshot(), { terminalWidth: 120, color: true });
+      assert.deepStrictEqual(
+        colored.map((line) => stripAnsi(line).trimEnd()),
+        plain.map((line) => line.trimEnd()),
+      );
+    } finally {
+      chalk.level = previousLevel;
+    }
+  });
+
+  it("C003 leaves a row without stages unchanged", () => {
+    const lines = renderHeader(snapshot(), { terminalWidth: 80, color: false });
+    assert.doesNotMatch(lines[0] ?? "", /\[W,W/);
+  });
+});
