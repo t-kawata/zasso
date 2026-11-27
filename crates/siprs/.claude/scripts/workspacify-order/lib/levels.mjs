@@ -12,16 +12,10 @@
  */
 import { existsSync, readFileSync } from 'node:fs';
 import { basename, dirname, join, resolve, sep } from 'node:path';
+import { displayWidth } from './display-width.mjs';
+import { readPipelineStageMarks } from './pipeline-cells.mjs';
 
 import {
-  holdsAllocateManifest,
-  holdsBoundifyArtifact,
-  holdsExplanation,
-  holdsGraphArtifact,
-  holdsRfc,
-  holdsSplitArtifact,
-  holdsTreeManifest,
-  artifactStem,
   findRootArtifact,
   loadPackageRoles,
   loadPackageResidualUnits,
@@ -43,95 +37,12 @@ import {
   topologicalOrder,
 } from '../../sequences-slice/lib/implementation-order.mjs';
 import { digestValue } from '../../sequences-slice/lib/digest.mjs';
-import {
-  readBoundifyGeneration,
-  readDistributionGeneration,
-  readGraphGeneration,
-  readGrillGeneration,
-  readRootEduceGeneration,
-  readRootSmoothGeneration,
-  readSplitGeneration,
-} from './counters.mjs';
-import { readSequenceVerdicts } from './verdicts.mjs';
 import { WorkspacifyOrderError } from './errors.mjs';
 
 /** The smallest gap between the longest path and the first field. */
 export const MINIMUM_GAP = 1;
 
-/**
- * The width of one grapheme cluster.
- *
- * Width is a property of the terminal, not of the code-point count: a CJK ideograph and an
- * emoji occupy two columns, a combining mark or a joiner occupies none, and a ZWJ sequence
- * is one glyph even though it is several code points. The segmenter supplies the clusters;
- * the ranges below supply the East Asian Wide and emoji widths.
- */
-// [::TICKET::] PX-282 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-282 --for-spec --no-implementation-order`.
-const graphemeSegmenter = new Intl.Segmenter('en', { granularity: 'grapheme' });
-/** Combining marks and format characters draw no column of their own. */
-const ZERO_WIDTH_CHARACTER = /^[\p{Mn}\p{Me}\p{Cf}]$/u;
-/** The ranges whose code points occupy two terminal columns: East Asian Wide/Fullwidth. */
-const WIDE_RANGES = Object.freeze([
-  [0x1100, 0x115f],
-  [0x2329, 0x232a],
-  [0x2e80, 0x303e],
-  [0x3041, 0x33ff],
-  [0x3400, 0x4dbf],
-  [0x4e00, 0x9fff],
-  [0xa000, 0xa4cf],
-  [0xa960, 0xa97f],
-  [0xac00, 0xd7a3],
-  [0xf900, 0xfaff],
-  [0xfe10, 0xfe19],
-  [0xfe30, 0xfe6f],
-  [0xff00, 0xff60],
-  [0xffe0, 0xffe6],
-  [0x16fe0, 0x16fff],
-  [0x1b000, 0x1b2ff],
-  [0x1f200, 0x1f2ff],
-  [0x1f300, 0x1faff],
-  [0x20000, 0x3fffd],
-  // Emoji-presentation dingbats below the CJK block; U+274C is the failed-verdict glyph.
-  [0x2705, 0x2705],
-  [0x2714, 0x2714],
-  [0x2716, 0x2716],
-  [0x2728, 0x2728],
-  [0x274c, 0x274c],
-  [0x274e, 0x274e],
-  [0x2753, 0x2755],
-  [0x2757, 0x2757],
-  [0x2795, 0x2797],
-  [0x27b0, 0x27b0],
-  [0x27bf, 0x27bf],
-  [0x2b50, 0x2b50],
-  [0x2b55, 0x2b55],
-]);
-
-/** The width of one code point: two for a wide range, zero for a combining mark, one otherwise. */
-// [::TICKET::] PX-282 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-282 --for-spec --no-implementation-order`.
-function codePointWidth(codePoint) {
-  if (ZERO_WIDTH_CHARACTER.test(String.fromCodePoint(codePoint))) return 0;
-  return WIDE_RANGES.some(([start, end]) => codePoint >= start && codePoint <= end) ? 2 : 1;
-}
-
-/** The width of one grapheme cluster, including emoji sequences and combining marks. */
-// [::TICKET::] PX-282 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-282 --for-spec --no-implementation-order`.
-function graphemeWidth(grapheme) {
-  if (ZERO_WIDTH_CHARACTER.test(grapheme)) return 0;
-  // A variation selector or a zero-width joiner presents the cluster as one emoji glyph.
-  if (grapheme.includes('\u200d') || grapheme.includes('\ufe0f')) return 2;
-  let width = 0;
-  for (const character of grapheme) width += codePointWidth(character.codePointAt(0));
-  return width;
-}
-
-/** The number of terminal columns a string occupies. */
-// [::TICKET::] PX-282 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-282 --for-spec --no-implementation-order`.
-export function displayWidth(text) {
-  let width = 0;
-  for (const { segment } of graphemeSegmenter.segment(text)) width += graphemeWidth(segment);
-  return width;
-}
+export { displayWidth };
 
 /** The two spaces, the critical marker or a space, and the space before the path. */
 export const PREFIX_WIDTH = displayWidth('  * ');
@@ -364,6 +275,7 @@ function assertSidecarFresh({ root, packages, treeManifest, allocateManifest, si
   }
 }
 
+// [::TICKET::] PX-460 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-460 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-223 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-223 --for-spec --no-implementation-order`.
 function firstDisagreeingLevel(derivedLevels, publishedLevels) {
   const shared = Math.min(derivedLevels.length, publishedLevels.length);
@@ -565,52 +477,8 @@ export function buildModel({ root, treeManifest, allocateManifest }) {
   // filesystem with an undefined segment. The first two are probes that read nothing; the third is
   // a verdict, so it is read from the directory's own documents and answers for every package
   // whether or not they are there.
-  const explainedIds = new Set(
-    packages.filter((pkg) => holdsExplanation({ root, packagePath: pkg.path })).map((pkg) => pkg.id),
-  );
-  const grilledIds = new Set(
-    packages.filter((pkg) => holdsRfc({ root, packagePath: pkg.path })).map((pkg) => pkg.id),
-  );
-  const sequenceVerdicts = readSequenceVerdicts({ root, packages });
-  // The counters are read once per package, beside the documents they qualify. A package
-  // with no record answers null, which the renderer reads as unknown rather than zero.
-  const rootCounters = {
-    edu: readRootEduceGeneration(root),
-    smo: readRootSmoothGeneration(root),
-  };
-  // The first two pipeline stages are root-level. Both manifests are required for the
-  // command to run at all, so a runnable workspace prints both marks on every package.
-  const rootManifests = {
-    tree: holdsTreeManifest(root),
-    allocate: holdsAllocateManifest(root),
-  };
-  const grillGenerations = new Map(
-    packages.map((pkg) => [pkg.id, readGrillGeneration(join(root, pkg.path))]),
-  );
-  const distributionGenerations = new Map(
-    packages.map((pkg) => [pkg.id, readDistributionGeneration(join(root, pkg.path))]),
-  );
-  const graphifiedIds = new Set(
-    packages.filter((pkg) => holdsGraphArtifact({ root, packagePath: pkg.path })).map((pkg) => pkg.id),
-  );
-  const boundifiedIds = new Set(
-    packages.filter((pkg) => holdsBoundifyArtifact({ root, packagePath: pkg.path })).map((pkg) => pkg.id),
-  );
-  const splitIds = new Set(
-    packages.filter((pkg) => holdsSplitArtifact({ root, packagePath: pkg.path })).map((pkg) => pkg.id),
-  );
-  const graphGenerations = new Map(packages.map((pkg) => [pkg.id, readGraphGeneration(
-    join(root, pkg.path),
-    artifactStem({ root, packagePath: pkg.path }),
-  )]));
-  const boundifyGenerations = new Map(packages.map((pkg) => [pkg.id, readBoundifyGeneration(
-    join(root, pkg.path),
-    artifactStem({ root, packagePath: pkg.path }),
-  )]));
-  const splitGenerations = new Map(packages.map((pkg) => [pkg.id, readSplitGeneration(
-    join(root, pkg.path),
-    artifactStem({ root, packagePath: pkg.path }),
-  )]));
+  const stageMarks = readPipelineStageMarks({ root, packages });
+
   // The ledger is read once here, beside the other per-directory documents, so the
   // renderer never reaches the filesystem and an unreadable ledger is absent rather
   // than a zero count the directory never stated.
@@ -624,20 +492,8 @@ export function buildModel({ root, treeManifest, allocateManifest }) {
   return {
     workspaceName: basename(resolve(root)),
     packages,
-    explainedIds,
-    grilledIds,
-    sequenceVerdicts,
-    rootCounters,
-    rootManifests,
-    grillGenerations,
-    distributionGenerations,
-    graphifiedIds,
-    boundifiedIds,
-    splitIds,
+    ...stageMarks,
     ticketLedgers,
-    graphGenerations,
-    boundifyGenerations,
-    splitGenerations,
     levels,
     buildLevels,
     orderSource,

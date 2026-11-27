@@ -21,7 +21,8 @@ import type { PipelineStepRecord } from "./stage-engine.js";
 import type { StageEngineDeps, StageRunRecord } from "./stage-engine.js";
 import { loadWatcherConfig } from "./watcher.js";
 import type { WatcherConfig } from "./watcher.js";
-import { isWithinTimeWindow } from "./step-timer.js";
+import { isWithinTimeWindow, waitForWindow } from "./step-timer.js";
+import type { PipelineCompletionReason } from "./pipeline-action.js";
 import { CronScheduler } from "./cron-scheduler.js";
 import { createTerminationHandle } from "./termination.js";
 import {
@@ -97,9 +98,15 @@ function buildLoopOptions(
   cli: CliOptions,
   model: WorkspaceModel,
   display?: DisplayHooks,
+  watcherConfig?: WatcherConfig,
 ): WorkspaceLoopOptions {
   const { watcherConfig: _ignored, ...loop } = cli;
-  return { ...loop, workspace: model, ...(display === undefined ? {} : { display }) };
+  return {
+    ...loop,
+    workspace: model,
+    ...(display === undefined ? {} : { display }),
+    ...(watcherConfig === undefined ? {} : { watcherConfig }),
+  };
 }
 
 // [::TICKET::] PX-403, PX-404 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-403|PX-404) --for-spec --no-implementation-order`.
@@ -135,14 +142,18 @@ function hasUpstreamStage(plan: StagePlan): boolean {
  * workspacify and split because those stages create the inputs the next stage
  * reads.
  */
+interface StageModeInput {
+  readonly cli: CliOptions;
+  readonly plan: StagePlan;
+  readonly root: string;
+  readonly initialModel: WorkspaceModel;
+  readonly display?: DisplayHooks;
+  readonly watcherConfig?: WatcherConfig;
+}
+
 // [::TICKET::] PX-454, PX-455, PX-456 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-454|PX-455|PX-456) --for-spec --no-implementation-order`.
-async function runStageMode(
-  cli: CliOptions,
-  plan: StagePlan,
-  root: string,
-  initialModel: WorkspaceModel,
-  display?: DisplayHooks,
-): Promise<void> {
+async function runStageMode(input: StageModeInput): Promise<PipelineCompletionReason> {
+  const { cli, plan, root, initialModel, display, watcherConfig } = input;
   const sessionConfig = { apiKey: cli.apiKey, model: cli.model, baseUrl: cli.baseUrl };
   const runOptions = {
     timeoutMs: cli.timeoutMs,
@@ -206,21 +217,22 @@ async function runStageMode(
 
   // The scheduler re-reads the workspace after workspacify, split and drill, so a
   // plan that starts at workspacify is one call like every other plan.
-  await runStagePlan({
+  return runStagePlan({
     plan,
     workspace: initialModel,
-    options: buildLoopOptions(cli, initialModel, display),
+    options: buildLoopOptions(cli, initialModel, display, watcherConfig),
     deps,
     ...stageHooks,
   });
 }
 
 // [::TICKET::] PX-403, PX-404, PX-408, PX-413, PX-449, PX-454, PX-456 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-403|PX-404|PX-408|PX-413|PX-449|PX-454|PX-456) --for-spec --no-implementation-order`.
-type WatcherModeResult = "terminated" | "endpoint" | "config-error";
+type WatcherModeResult = "terminated" | "endpoint" | "stopped" | "config-error";
 
 // [::TICKET::] PX-413 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-413 --for-spec --no-implementation-order`.
 async function runWatcherMode(
   cli: CliOptions,
+  plan: StagePlan,
   model: WorkspaceModel,
   display?: DisplayHooks,
 ): Promise<WatcherModeResult> {
@@ -240,21 +252,37 @@ async function runWatcherMode(
     ? cli.packages
     : config.packages ?? [];
 
-  // An explicit endpoint selection is terminal even when an earlier package
-  // still has pending work: nothing is processed, so no order is crossed.
-  const requestedPackages = resolveRequestedPackages(model.packages, requested);
-  if (requestedPackages.length > 0 && allPackagesAreEndpoint(requestedPackages)) {
+  // Only the implementation group has a ticket-boundary endpoint that can be
+  // decided before a tick. A plan that includes upstream, shipping or evolution
+  // stages is complete only when the stage engine says so after a tick.
+  // [::TICKET::] PX-456 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-456 --for-spec --no-implementation-order`.
+  const usesImplementationGroupPlan = isImplementationGroupPlan(plan);
+  // A plan that starts at workspacify has no packages yet; resolving a package
+  // selection against that empty model would refuse a valid request before the
+  // workspace exists. The implementation loop validates the selection when it
+  // starts, so only the implementation-group startup shortcut resolves it here.
+  const requestedPackages = usesImplementationGroupPlan
+    ? resolveRequestedPackages(model.packages, requested)
+    : [];
+  if (
+    usesImplementationGroupPlan
+    && requestedPackages.length > 0
+    && allPackagesAreEndpoint(requestedPackages)
+  ) {
     process.stdout.write("Watcher mode: endpoint reached; exiting\n");
     return "endpoint";
   }
 
-  // Validate the selection before the first firing so an ambiguous or
-  // order-crossing choice fails at startup, not hours later.
-  resolvePackageSelection({
-    packages: model.packages,
-    requested,
-    hasPending: (pkg) => hasPendingTickets(pkg.ticketsPath),
-  });
+  // The ticket selection only decides which packages the implementation loop
+  // processes. Upstream stages are workspace-scoped, so their selection rule
+  // does not apply to a plan that starts before make.
+  if (usesImplementationGroupPlan) {
+    resolvePackageSelection({
+      packages: model.packages,
+      requested,
+      hasPending: (pkg) => hasPendingTickets(pkg.ticketsPath),
+    });
+  }
 
   if (!isWithinTimeWindow(config)) {
     process.stdout.write(
@@ -265,8 +293,35 @@ async function runWatcherMode(
   const loopOptions = buildLoopOptions(cli, model, display);
   loopOptions.watcherConfig = config;
   let isLoopRunning = false;
-  let exitReason: "terminated" | "endpoint" = "terminated";
+  let exitReason: "terminated" | "endpoint" | "stopped" = "terminated";
   const terminationHandle = createTerminationHandle();
+
+  // One tick runs the selected plan: the implementation group keeps its ticket
+  // loop, and every other plan runs the stage engine from upstream to evolution.
+  // [::TICKET::] PX-456 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-456 --for-spec --no-implementation-order`.
+  const runTick = async (): Promise<"continue" | "settled" | "stopped"> => {
+    if (usesImplementationGroupPlan) {
+      const result: WorkspaceLoopResult = await runWorkspaceLoop(loopOptions);
+      return result.allSelectedComplete ? "settled" : "continue";
+    }
+    await waitForWindow(config);
+    const reason = await runStageMode({
+      cli,
+      plan,
+      root: model.root,
+      initialModel: model,
+      display,
+      watcherConfig: config,
+    });
+    if (
+      reason === "workspace-complete"
+      || reason === "no-selected-work"
+      || reason === "implementation-not-selected"
+    ) {
+      return "settled";
+    }
+    return reason === "implementation-stopped" ? "stopped" : "continue";
+  };
 
   const scheduler = new CronScheduler(config);
   scheduler.start(() => {
@@ -275,17 +330,21 @@ async function runWatcherMode(
       return;
     }
     isLoopRunning = true;
-    runWorkspaceLoop(loopOptions)
-      .then((result: WorkspaceLoopResult) => {
-        if (result.allSelectedComplete) {
+    runTick()
+      .then((outcome) => {
+        if (outcome === "settled") {
           exitReason = "endpoint";
+          scheduler.stop();
+          terminationHandle.stop();
+        } else if (outcome === "stopped") {
+          exitReason = "stopped";
           scheduler.stop();
           terminationHandle.stop();
         }
       })
       .catch((err) => {
         console.error(
-          "Watcher runLoop error:",
+          "Watcher tick error:",
           err instanceof Error ? err.message : err,
         );
         if (err instanceof LoopStoppedError) {
@@ -317,6 +376,9 @@ async function runWatcherMode(
 export async function main(): Promise<void> {
   const options = parseCliOptions(process.argv);
 
+  // -T has one initial value in every mode: the pipeline's full canonical plan.
+  // Watcher mode runs the same plan on each tick; it does not substitute a
+  // narrower default.
   let plan: StagePlan;
   try {
     plan = parseStagePlan(options.tasks);
@@ -329,18 +391,7 @@ export async function main(): Promise<void> {
     throw error;
   }
 
-  // The watcher endpoint is defined by the implementation group's ticket and
-  // boundary state; an upstream stage or a partial implementation block has no
-  // endpoint to wait for, so the watcher is kept on the existing path only.
-  // [::TICKET::] PX-456 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-456 --for-spec --no-implementation-order`.
   const usesImplementationGroupPlan = isImplementationGroupPlan(plan);
-  if (options.watcherConfig !== undefined && !usesImplementationGroupPlan) {
-    process.stderr.write(
-      "conver.js — -w/--watcher requires the implementation group; pass -T make,plan,start,review,resolve,consolidate,find with -w\n",
-    );
-    process.exit(1);
-    return;
-  }
 
   if (options.apiKey === "") {
     process.stderr.write(
@@ -466,16 +517,23 @@ export async function main(): Promise<void> {
 
   try {
     if (options.watcherConfig) {
-      const result = await runWatcherMode(options, model, display);
+      const result = await runWatcherMode(options, plan, model, display);
       // The scheduler and dashboard have already been released; exit through
       // the shared shutdown path so stdin listeners do not keep the process up.
       // A config error already exited with 1 and must not be re-exited as 0
       // when process.exit is replaced by a test double.
       if (result === "terminated" || result === "endpoint") lifecycle.shutdown(0);
+      else if (result === "stopped") lifecycle.shutdown(1);
     } else if (usesImplementationGroupPlan) {
       await runNormalMode(options, model, display);
     } else {
-      await runStageMode(options, plan, model.root, model, display);
+      await runStageMode({
+        cli: options,
+        plan,
+        root: model.root,
+        initialModel: model,
+        display,
+      });
     }
   } catch (error) {
     if (error instanceof LoopStoppedError) {

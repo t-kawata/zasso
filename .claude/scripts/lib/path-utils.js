@@ -6,8 +6,8 @@
  *
  * @module path-utils
  */
-const os = require('os');
-const path = require('path');
+const os = require('node:os');
+const path = require('node:path');
 
 /**
  * Converts an absolute path to ~/-relative if it's under $HOME.
@@ -17,6 +17,7 @@ const path = require('path');
  * @param {string} absPath — Absolute or relative file path
  * @returns {string} ~/-relative path if under $HOME, otherwise absPath unchanged
  */
+// [::TICKET::] PX-460 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-460 --for-spec --no-implementation-order`.
 function toHomeRelative(absPath) {
   if (!absPath) return absPath;
   // Already ~/-relative: return unchanged (path.resolve would interpret ~/ literally)

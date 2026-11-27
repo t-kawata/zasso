@@ -73,8 +73,8 @@ Options:
   --timeout <seconds>        Command timeout in seconds (default: ${DEFAULT_COMMAND_TIMEOUT_SECONDS})
   -b, --bind-review-in-one-session <0|1>
                              Bind review in same session (default: 1)
-  -w, --watcher <path>       Watcher config JSON path (exits 0 at the endpoint; requires
-                             -T make,plan,start,review,resolve,consolidate,find)
+  -w, --watcher <path>       Watcher config JSON path (runs the selected plan on each
+                             tick; exits 0 when the selected plan completes)
   -n, --no-find <0|1>        Skip find after all done; consolidate still runs (default: 0)
   -T, --tasks <stages>       Contiguous stage slice to run (default: ${DEFAULT_STAGE_PLAN_RAW})
                              Stages: workspacify,educe,explain,grill,smooth,graphify,boundify,split,make,plan,

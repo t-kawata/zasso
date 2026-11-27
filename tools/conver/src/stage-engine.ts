@@ -19,7 +19,11 @@ import {
   createInitialPipelineState,
   deriveNextPipelineStep,
 } from "./pipeline-action.js";
-import type { PipelineAction, PipelinePhase } from "./pipeline-action.js";
+import type {
+  PipelineAction,
+  PipelineCompletionReason,
+  PipelinePhase,
+} from "./pipeline-action.js";
 import { readPipelineSnapshot } from "./pipeline-snapshot.js";
 import type { PipelineSnapshot } from "./pipeline-snapshot.js";
 import type { WorkspaceLoopOptions, WorkspaceLoopResult } from "./runner.js";
@@ -318,7 +322,7 @@ async function runStageAction(input: StageActionInput): Promise<void> {
  * A phase transition is a state change, not a remembered command: the next
  * iteration re-reads the snapshot before it sends anything.
  */
-export async function runStagePlan(input: RunStagePlanInput): Promise<void> {
+export async function runStagePlan(input: RunStagePlanInput): Promise<PipelineCompletionReason> {
   const previousCwd = process.cwd();
   const checkPrecondition = input.deps.assertPrecondition ?? defaultAssertPrecondition;
   const checkArtifact = input.deps.assertArtifact ?? defaultAssertArtifact;
@@ -375,7 +379,7 @@ export async function runStagePlan(input: RunStagePlanInput): Promise<void> {
           skips,
           cycles,
         });
-        return;
+        return step.action.reason;
       }
 
       if (phase === "evolve" && step.nextState.phase === "implement") cycles += 1;

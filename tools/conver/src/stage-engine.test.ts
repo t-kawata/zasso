@@ -477,7 +477,7 @@ describe("runStagePlan — command contract", () => {
     });
     const fake = createFakeDeps(state, {}, model);
 
-    await runStagePlan({
+    const outcome = await runStagePlan({
       plan: parseStagePlan(
         "workspacify,educe:2,explain,grill:2,smooth:2,graphify:1,boundify:1,split:1,make,plan,start,review,resolve,consolidate,find,crystalize,drill",
       ),
@@ -486,6 +486,7 @@ describe("runStagePlan — command contract", () => {
       deps: fake.deps,
     });
 
+    assert.strictEqual(outcome, "workspace-complete", "the plan returns its completion reason");
     const upstreamStages = new Set([
       "workspacify",
       "educe",

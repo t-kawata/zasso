@@ -65,6 +65,12 @@ const state: {
   runtimeCheck: { blocked: boolean; message: string };
   runResult: { processed: number; allSelectedComplete: boolean };
   allPackagesEndpoint: boolean;
+  readWorkspaceCalls: number;
+  readInitialWorkspaceCalls: number;
+  stagePlans: Array<{ selections: Array<{ name: string; count: number }> }>;
+  stageWatcherConfigs: unknown[];
+  stageOutcome: string;
+  waitForWindowCalls: number;
 } = {
   cli: {
     apiKey: "k",
@@ -94,6 +100,12 @@ const state: {
   runtimeCheck: { blocked: false, message: "" },
   runResult: { processed: 0, allSelectedComplete: false },
   allPackagesEndpoint: false,
+  readWorkspaceCalls: 0,
+  readInitialWorkspaceCalls: 0,
+  stagePlans: [],
+  stageWatcherConfigs: [],
+  stageOutcome: "workspace-complete",
+  waitForWindowCalls: 0,
 };
 
 // [::TICKET::] PX-403, PX-404 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-403|PX-404) --for-spec --no-implementation-order`.
@@ -123,10 +135,16 @@ mock.module("./workspace.js", {
       return state.workspace.root;
     },
     resolveStageWorkspaceRoot: () => state.workspace.root,
-    readInitialWorkspaceForPlan: () => state.workspace,
+    readInitialWorkspaceForPlan: () => {
+      state.readInitialWorkspaceCalls += 1;
+      return state.workspace;
+    },
     readWorkspaceForStagePlan: () => state.workspace,
     validateImplementationOrder: () => {},
-    readWorkspace: () => state.workspace,
+    readWorkspace: () => {
+      state.readWorkspaceCalls += 1;
+      return state.workspace;
+    },
     WorkspaceGateError: MockWorkspaceGateError,
   },
 });
@@ -157,7 +175,24 @@ mock.module("./watcher.js", {
   },
 });
 mock.module("./step-timer.js", {
-  exports: { isWithinTimeWindow: () => state.withinWindow },
+  exports: {
+    isWithinTimeWindow: () => state.withinWindow,
+    waitForWindow: async () => {
+      state.waitForWindowCalls += 1;
+    },
+  },
+});
+mock.module("./stage-engine.js", {
+  exports: {
+    runStagePlan: async (input: {
+      plan: { selections: Array<{ name: string; count: number }> };
+      options?: { watcherConfig?: unknown };
+    }) => {
+      state.stagePlans.push(input.plan);
+      state.stageWatcherConfigs.push(input.options?.watcherConfig);
+      return state.stageOutcome;
+    },
+  },
 });
 mock.module("./cron-scheduler.js", {
   exports: {
@@ -245,6 +280,12 @@ beforeEach(() => {
   state.runtimeCheck = { blocked: false, message: "" };
   state.runResult = { processed: 0, allSelectedComplete: false };
   state.allPackagesEndpoint = false;
+  state.readWorkspaceCalls = 0;
+  state.readInitialWorkspaceCalls = 0;
+  state.stagePlans = [];
+  state.stageOutcome = "workspace-complete";
+  state.waitForWindowCalls = 0;
+  state.stageWatcherConfigs = [];
 });
 
 // @verifies C003 — endpoint exit and non-endpoint continuation
@@ -348,6 +389,8 @@ describe("main", () => {
     assert.ok(state.callback !== null);
     state.callback?.();
     assert.ok(state.runOptions !== null);
+    assert.strictEqual(state.stagePlans.length, 0, "the implementation group keeps the ticket loop");
+    assert.strictEqual(state.waitForWindowCalls, 0, "the ticket loop owns its own window wait");
 
     state.termination.resolve();
     await running;
@@ -401,21 +444,85 @@ describe("main", () => {
   });
 
   // [::TICKET::] PX-456 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-456 --for-spec --no-implementation-order`.
-  it("C001: refuses -w when the plan is the full default", async () => {
+  it("C001: -w without -T uses the default full plan and the stage engine", async () => {
     mockExit();
     state.cli.watcherConfig = "/tmp/watcher.json";
     state.cli.tasks = undefined;
-    const stderr = captureStream(process.stderr);
+    const stdout = captureStream(process.stdout);
+    const running = main();
     try {
-      await main();
+      await new Promise<void>((resolve) => setImmediate(resolve));
+      assert.deepStrictEqual(state.exitCalls, []);
+      assert.strictEqual(state.schedulerStarted, true);
+      assert.ok(state.readInitialWorkspaceCalls > 0, "the stage-aware model is read");
+      assert.strictEqual(state.readWorkspaceCalls, 0, "the implementation-group model is not read at startup");
+      assert.ok(stdout.chunks.join("").includes("tasks=(default)"), "the banner keeps the shared default");
+      state.callback?.();
+      await new Promise<void>((resolve) => setImmediate(resolve));
+      await new Promise<void>((resolve) => setImmediate(resolve));
     } finally {
-      stderr.restore();
+      stdout.restore();
+      state.termination.resolve();
+      await running;
     }
-    assert.deepStrictEqual(state.exitCalls, [1]);
+
+    assert.strictEqual(state.schedulerStopped, true);
+    assert.deepStrictEqual(state.exitCalls, [0]);
+    assert.strictEqual(state.stagePlans.length, 1);
+    assert.strictEqual(state.stagePlans[0]?.selections.length, 17);
+    assert.strictEqual(state.stagePlans[0]?.selections[0]?.name, "workspacify");
+    assert.strictEqual(state.stagePlans[0]?.selections.at(-1)?.name, "drill");
+    assert.ok(state.waitForWindowCalls > 0, "the stage tick waits for the configured window");
+    assert.strictEqual(state.stageWatcherConfigs.length, 1);
     assert.ok(
-      stderr.chunks.join("").includes("make,plan,start,review,resolve,consolidate,find"),
-      "the refusal must name the explicit implementation-group -T",
+      state.stageWatcherConfigs[0] !== undefined,
+      "the implementation loop inside the tick keeps the watcher window config",
     );
+  });
+
+  it("C001: -w treats an empty -T as the default full plan", async () => {
+    mockExit();
+    state.cli.watcherConfig = "/tmp/watcher.json";
+    state.cli.tasks = "   ";
+    const running = main();
+    try {
+      await new Promise<void>((resolve) => setImmediate(resolve));
+      state.callback?.();
+      await new Promise<void>((resolve) => setImmediate(resolve));
+      await new Promise<void>((resolve) => setImmediate(resolve));
+    } finally {
+      state.termination.resolve();
+      await running;
+    }
+
+    assert.deepStrictEqual(state.exitCalls, [0]);
+    assert.strictEqual(state.stagePlans.length, 1);
+    assert.strictEqual(state.stagePlans[0]?.selections.length, 17);
+  });
+
+  it("C001: -w accepts an explicit non-implementation plan and runs it", async () => {
+    mockExit();
+    state.cli.watcherConfig = "/tmp/watcher.json";
+    state.cli.tasks = "workspacify,educe,explain";
+    state.stageOutcome = "budget-exhausted";
+    const running = main();
+    try {
+      await new Promise<void>((resolve) => setImmediate(resolve));
+      assert.deepStrictEqual(state.exitCalls, []);
+      state.callback?.();
+      await new Promise<void>((resolve) => setImmediate(resolve));
+      await new Promise<void>((resolve) => setImmediate(resolve));
+
+      assert.strictEqual(state.stagePlans.length, 1);
+      assert.deepStrictEqual(
+        state.stagePlans[0]?.selections.map((selection) => selection.name),
+        ["workspacify", "educe", "explain"],
+      );
+    } finally {
+      state.termination.resolve();
+      await running;
+    }
+    assert.deepStrictEqual(state.exitCalls, [0]);
   });
 });
 

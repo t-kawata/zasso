@@ -35,7 +35,7 @@ import {
 } from '../sequences-slice/lib/obligation-coverage.mjs';
 import { SOURCE_ARTIFACT_SUFFIX, VIEW_JSON_NAME } from '../sequences-slice/lib/material.mjs';
 import { packageDirectoriesOf } from '../sequences-slice/lib/package-directories.mjs';
-import { OBLIGATION_SOURCES } from '../sequences-slice/lib/obligation.mjs';
+import { findDeclarationsThatDidNotBind } from './lib/declaration-bindings.mjs';
 
 const { createFinding, renderFindings } = repairFinding;
 
@@ -45,9 +45,6 @@ const EXIT_FAILED = 1;
 const TREE_MANIFEST_FILENAME = 'WORKSPACIFY-TREE-MANIFEST.json';
 const ALLOCATE_MANIFEST_FILENAME = 'WORKSPACIFY-ALLOCATE-MANIFEST.json';
 const USAGE = 'usage: check-obligation-coverage.js <WORKSPACE_ROOT>';
-
-/** The verdict a view declares when it holds no obligation units. */
-const DECLARED_SOURCE = OBLIGATION_SOURCES[0];
 
 /** Read and parse one JSON file, or null when it cannot be read. */
 // [::TICKET::] PX-259 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-259 --for-spec --no-implementation-order`.
@@ -91,23 +88,6 @@ function readViews(root, treeManifest = undefined) {
     if (view !== null) views.push(view);
   }
   return views;
-}
-
-/**
- * The views that declare a surface mapping and hold no unit for it.
- *
- * The coverage gate subsumes this in outcome, and it is reported apart because the two facts call
- * for different repairs: a declaration that did not bind to its package is a wiring defect, while an
- * unserved column is a decision the workspace has not made yet.
- *
- * @param {object[]} views
- * @returns {string[]}
- */
-// [::TICKET::] PX-259 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-259 --for-spec --no-implementation-order`.
-function findDeclarationsThatDidNotBind(views) {
-  return views
-    .filter((view) => view?.obligationSource === DECLARED_SOURCE && (view.obligationUnits ?? []).length === 0)
-    .map((view) => String(view.packageId));
 }
 
 /**
@@ -414,6 +394,7 @@ function buildCoverageFindings({ coverage, views, artifactPath, root }) {
 }
 
 /** Measure one workspace and print its verdict. */
+// [::TICKET::] PX-460 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-460 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-259, PX-260, PX-261, PX-262, PX-263, PX-355 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-259|PX-260|PX-261|PX-262|PX-263|PX-355) --for-spec --no-implementation-order`.
 function main(argv = process.argv.slice(2)) {
   const [rootArgument] = argv.filter((argument) => !argument.startsWith('--'));

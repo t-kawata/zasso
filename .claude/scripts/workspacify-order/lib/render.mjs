@@ -9,59 +9,54 @@
  * Left to right is time. The manifests orient an edge consumer to provider; this view prints
  * the provider first, so an arrow in the critical chain reads "is finished before".
  */
+import { displayWidth } from './display-width.mjs';
 import {
-  SEQUENCE_VERDICT_COMPLETE,
-  SEQUENCE_VERDICT_FAILED,
-} from '../../sequences-slice/lib/package-verdict.mjs';
-import { displayWidth } from './levels.mjs';
+  EMOJI_COLUMNS,
+  FIELD_COLUMNS,
+  FIELD_ROWS,
+  FIELD_SEQUENCE,
+  cellFor,
+} from './pipeline-cells.mjs';
+
+export {
+  EDU_GLYPH,
+  EXPLANATION_GLYPH,
+  GRILL_GLYPH,
+  SEQUENCE_GLYPH,
+  FAILED_SEQUENCE_GLYPH,
+  SMOOTH_GLYPH,
+  GRAPH_GLYPH,
+  BOUNDIFY_GLYPH,
+  SPLIT_GLYPH,
+  WTR_GLYPH,
+  WTR_TEXT,
+  WAL_GLYPH,
+  WAL_TEXT,
+  EXPLANATION_TEXT,
+  GRAPH_TEXT,
+  BOUNDIFY_TEXT,
+  SPLIT_TEXT,
+  EDUCATION_TEXT,
+  GRILL_TEXT,
+  SEQUENCE_TEXT,
+  SMOOTH_TEXT,
+  UNKNOWN_COUNT,
+  FIELD_SEQUENCE,
+  FIELD_COLUMNS,
+  FIELD_ROWS,
+  PIPELINE_LABELS,
+  EMOJI_COLUMNS,
+  readPipelineCells,
+} from './pipeline-cells.mjs';
 
 export const LEVEL_LABEL = 'level';
 export const FOCUS_MARKER = '▶';
 export const CRITICAL_MARKER = '*';
 
-/** The full-width glyphs the pipeline fields carry, in pipeline order. */
-export const EDU_GLYPH = '🟤';
-export const EXPLANATION_GLYPH = '🔴';
-export const GRILL_GLYPH = '🟠';
-export const SEQUENCE_GLYPH = '🟡';
-export const FAILED_SEQUENCE_GLYPH = '❌';
-export const SMOOTH_GLYPH = '🟢';
-export const GRAPH_GLYPH = '🔵';
-export const BOUNDIFY_GLYPH = '🟣';
-export const SPLIT_GLYPH = '⚫️';
-
-/** The two workspace-stage marks: the root manifests the first two commands wrote. */
-export const WTR_GLYPH = '◻️';
-export const WTR_TEXT = 'WTR';
-export const WAL_GLYPH = '◻️';
-export const WAL_TEXT = 'WAL';
-
 /** The ticket row's mark and label; the ledger sits to the right of them. */
 export const TICKETS_GLYPH = '⚪️';
 export const TICKETS_TEXT = 'TICKETS:';
 
-/** The word the explanation field carries: a document mark, not a count. */
-export const EXPLANATION_TEXT = 'EXP';
-
-/** The three downstream fields are document marks: the artifact each command wrote. */
-export const GRAPH_TEXT = 'GRA';
-export const BOUNDIFY_TEXT = 'BOU';
-export const SPLIT_TEXT = 'SPL';
-/**
- * The value a numeric field prints when no record exists.
- *
- * A question mark keeps the `KEY:VALUE` shape on every line and, unlike 0 or 1, does not
- * assert a number the workspace never recorded.
- */
-export const UNKNOWN_COUNT = '?';
-
-/** The field order is the pipeline order, so a line reads left to right as the work happened. */
-export const FIELD_SEQUENCE = Object.freeze(['wtr', 'wal', 'edu', 'exp', 'gri', 'seq', 'smo', 'gra', 'bou', 'spl']);
-/** Five columns, two rows; the paired rows share every column's width. */
-export const FIELD_COLUMNS = 5;
-export const FIELD_ROWS = FIELD_SEQUENCE.length / FIELD_COLUMNS;
-/** Emoji presentation occupies two terminal columns. */
-export const EMOJI_COLUMNS = 2;
 
 export const CHAIN_ARROW_GLYPH = '→';
 export const CHAIN_ARROW = ` ${CHAIN_ARROW_GLYPH} `;
@@ -114,99 +109,6 @@ function renderLevelHeader(index) {
   return `<${LEVEL_LABEL} ${index}>`;
 }
 
-/**
- * One field of a package line, or null when the directory carries no answer for it.
- *
- * The field order follows the pipeline: the root generations bracket the work, the
- * explanation precedes the grill, and the grill precedes the distribution. The first two
- * per-directory fields are documents; the third is a verdict with two spellings. A counter
- * is used when the producer recorded one; when it did not, the field prints `?` so the line
- * keeps one shape and never invents a number.
- */
-// [::TICKET::] PX-282, PX-309 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-282|PX-309) --for-spec --no-implementation-order`.
-function generationCell(generation, glyph, label) {
-  return generation === null || generation === undefined
-    ? null
-    : { glyph, text: `${label}:${generation}` };
-}
-
-// [::TICKET::] PX-309, PX-313 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-309|PX-313) --for-spec --no-implementation-order`.
-function artifactCell(present, glyph, label, generation) {
-  if (!present) return null;
-  return generationCell(generation, glyph, label) ?? { glyph, text: `${label}:${UNKNOWN_COUNT}` };
-}
-
-// [::TICKET::] PX-309 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-309 --for-spec --no-implementation-order`.
-function educationCell(model) {
-  return generationCell(model.rootCounters.edu, EDU_GLYPH, 'EDU');
-}
-
-// [::TICKET::] PX-309 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-309 --for-spec --no-implementation-order`.
-function explanationCell(model, id) {
-  return model.explainedIds.has(id) ? { glyph: EXPLANATION_GLYPH, text: EXPLANATION_TEXT } : null;
-}
-
-// [::TICKET::] PX-309 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-309 --for-spec --no-implementation-order`.
-function grillCell(model, id) {
-  const generation = generationCell(model.grillGenerations.get(id), GRILL_GLYPH, 'GRI');
-  if (generation !== null) return generation;
-  return model.grilledIds.has(id) ? { glyph: GRILL_GLYPH, text: `GRI:${UNKNOWN_COUNT}` } : null;
-}
-
-// [::TICKET::] PX-309 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-309 --for-spec --no-implementation-order`.
-function sequenceCell(model, id) {
-  const verdict = model.sequenceVerdicts.get(id);
-  const judged = verdict?.state === SEQUENCE_VERDICT_COMPLETE || verdict?.state === SEQUENCE_VERDICT_FAILED;
-  const generation = model.distributionGenerations.get(id) ?? null;
-  if (generation === null && !judged) return null;
-  const value = generation === null ? UNKNOWN_COUNT : String(generation);
-  const glyph = verdict?.state === SEQUENCE_VERDICT_FAILED ? FAILED_SEQUENCE_GLYPH : SEQUENCE_GLYPH;
-  return { glyph, text: `SEQ:${value}` };
-}
-
-// [::TICKET::] PX-309 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-309 --for-spec --no-implementation-order`.
-function smoothCell(model) {
-  return generationCell(model.rootCounters.smo, SMOOTH_GLYPH, 'SMO');
-}
-
-/**
- * A workspace-stage mark, or null when the workspace root lacks that manifest.
- *
- * The mark carries a label and no count: the manifest is either there or not, so an
- * absent mark is omitted rather than printed as zero. The pair is workspace-level, so
- * every package prints the same answer.
- */
-// [::TICKET::] PX-459 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-459 --for-spec --no-implementation-order`.
-function manifestCell(present, glyph, label) {
-  return present ? { glyph, text: label } : null;
-}
-
-// [::TICKET::] PX-459 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-459 --for-spec --no-implementation-order`.
-function treeManifestCell(model) {
-  return manifestCell(model.rootManifests.tree, WTR_GLYPH, WTR_TEXT);
-}
-
-// [::TICKET::] PX-459 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-459 --for-spec --no-implementation-order`.
-function allocateManifestCell(model) {
-  return manifestCell(model.rootManifests.allocate, WAL_GLYPH, WAL_TEXT);
-}
-
-// [::TICKET::] PX-309, PX-313, PX-459 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=(PX-309|PX-313|PX-459) --for-spec --no-implementation-order`.
-function cellFor(model, id, key) {
-  switch (key) {
-    case 'wtr': return treeManifestCell(model);
-    case 'wal': return allocateManifestCell(model);
-    case 'edu': return educationCell(model);
-    case 'exp': return explanationCell(model, id);
-    case 'gri': return grillCell(model, id);
-    case 'seq': return sequenceCell(model, id);
-    case 'smo': return smoothCell(model);
-    case 'gra': return artifactCell(model.graphifiedIds.has(id), GRAPH_GLYPH, GRAPH_TEXT, model.graphGenerations.get(id));
-    case 'bou': return artifactCell(model.boundifiedIds.has(id), BOUNDIFY_GLYPH, BOUNDIFY_TEXT, model.boundifyGenerations.get(id));
-    case 'spl': return artifactCell(model.splitIds.has(id), SPLIT_GLYPH, SPLIT_TEXT, model.splitGenerations.get(id));
-    default: return null;
-  }
-}
 
 /**
  * The width of every field that any package line carries.
@@ -254,6 +156,7 @@ export function renderTicketBracket(tokens) {
  * other row's glyph in the same display column. An absent cell is drawn as a blank of the
  * column's width; the final trim removes padding that belongs to no later cell.
  */
+// [::TICKET::] PX-460 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-460 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-393 changes. Details: `node "$(git rev-parse --show-toplevel)/.claude/scripts/tickets/show-ticket-context.js" --ticket-key=PX-393 --for-spec --no-implementation-order`.
 function renderFieldRow(model, id, layout, rowIndex) {
   const cells = layout.columns.map((column) => cellFor(model, id, column.keys[rowIndex]));

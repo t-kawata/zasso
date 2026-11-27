@@ -274,4 +274,18 @@ describe("usageText", () => {
     const usage = (cliModule as { usageText?: () => string }).usageText?.() ?? "";
     assert.ok(usage.includes(FULL_STAGE_PLAN), "the usage must name the default plan");
   });
+
+  it("C001: names the watcher's completion condition", () => {
+    const usage = (cliModule as { usageText?: () => string }).usageText?.() ?? "";
+    // The help wraps at the terminal width, so compare across line breaks.
+    const normalized = usage.replace(/\s+/g, " ");
+    assert.ok(
+      normalized.includes("exits 0 when the selected plan completes"),
+      "the -w help must state what ends the watcher",
+    );
+    assert.ok(
+      !normalized.includes("implementation group is used"),
+      "the watcher must not advertise a mode-specific default",
+    );
+  });
 });

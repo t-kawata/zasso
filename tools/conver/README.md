@@ -634,7 +634,7 @@ conver は **ワークスペースルート** で実行します。必要な入�
 - **既定（`-T` 省略）**: workspacify 起点の全段計画です。ワークスペースルートの `SYSTEM-DESIGN.md` だけが必要で、マニフェストは workspacify が生成します（既に両方が `COMPLETE` なら読み込んで続行）。
 - **workspacify から開始**: 同上。`SYSTEM-DESIGN.md` が必要です。
 - **educe から split までで開始**: tree manifest と allocate manifest が必要です。`Tickets.json` はまだ不要です。
-- **make 以降から開始（実装グループ）**: `WORKSPACIFY-TREE-MANIFEST.json`・`WORKSPACIFY-ALLOCATE-MANIFEST.json`・`WORKSPACIFY-IMPLEMENTATION-ORDER.json` と、全パッケージの `Tickets.json` が必要です。`-w` はこの計画でのみ使用できます。`-w` で `-T` を省略した場合は、この実装グループ計画が既定になります。
+- **make 以降から開始（実装グループ）**: `WORKSPACIFY-TREE-MANIFEST.json`・`WORKSPACIFY-ALLOCATE-MANIFEST.json`・`WORKSPACIFY-IMPLEMENTATION-ORDER.json` と、全パッケージの `Tickets.json` が必要です。`-w` でも `-T` の既定は同じ全段計画です。
 
 4層ループの単一ディレクトリ実行はサポートしません。
 
@@ -669,7 +669,7 @@ workspacify 起点の計画は `SYSTEM-DESIGN.md` の存在だけを、educe 起
 | `-v`, `--verbose` | 詳細表示（0/1） | `1` |
 | `--timeout` | 各コマンドのタイムアウト（秒） | `5400` |
 | `-b`, `--bind-review-in-one-session` | make/plan/start/review を同一セッションに結合（0/1） | `1` |
-| `-w`, `--watcher` | Watcher 設定ファイルのパス（指定時は Watcher モード起動。endpoint で exit 0。`-T` 省略時は実装グループ計画） | — |
+| `-w`, `--watcher` | Watcher 設定ファイルのパス（指定時は Watcher モード起動。各 tick で選択した計画を実行し、計画完了で exit 0） | — |
 | `-n`, `--no-find` | 全 reviewed 後の find をスキップ（consolidate は実行）（0/1） | `0` |
 | `-T`, `--tasks` | 実行する段階の連続区間。正準順序の部分列のみ。再実行可能な段階だけが `:N` を受け取る | `workspacify,educe:2,explain,grill:2,smooth:2,graphify:1,boundify:1,split:1,make,plan,start,review,resolve,consolidate,find,crystalize,drill` |
 | `--max-find-rounds` | パッケージごとに find を実行できる回数。上限到達で停止して Slack 通知 | `5` |
@@ -697,7 +697,7 @@ make, plan, start, review, resolve, consolidate, find, crystalize, drill
 - **位相**: 適合・上流の後、全パッケージが実装 endpoint（全チケット終端かつ find がチケットを追加しない digest 一致）に達して初めて出荷へ進みます。crystalize は全パッケージに順に実行し、それが終わってから drill を全パッケージに順に実行します。drill 後に全パッケージの ticket-set digest を比較し、1つでも変化があれば実装へ戻り、変化がなければ完了します。crystalize と drill は回数や実行済みフラグではなく、この位相到達でのみ実行されます。
 - **drill**: `/drill-rfc-down` を**引数なし**でパッケージルートから実行します。`crystalize` を含まない `-T drill` は拒否されます。
 - **非対話**: 適合・上流の段階は記録済み回数で skip されます。educe には固定 `SYSTEM-DESIGN.md` の契約を、explain・grill・drill には人間の判断を求めず最後まで完了する指示を conver が付加します。
-- **既定との互換**: `-T` を省略した場合は全段計画を実行します。ただし `-w` を併用した場合は実装グループ計画が既定です。通常モードで実装グループだけを実行したい場合は `-T make,plan,start,review,resolve,consolidate,find` を明示します。`-w` に明示した `-T` が実装グループでなければ拒否されます。
+- **既定との互換**: `-T` を省略した場合は全段計画を実行します（通常モード・Watcher モード共通）。実装グループだけを実行したい場合は `-T make,plan,start,review,resolve,consolidate,find` を明示します。Watcher は各 tick で選択した計画を実行し、計画が完了した時点で exit 0 します。
 
 ### 実行アーキテクチャ — 5層・厳格順序
 
@@ -769,7 +769,9 @@ stateDiagram-v2
 
 ### Watcher モード — 定期実行による半自律運用
 
-`-w <config.json>` を指定すると、通常の 1 回実行ではなく **Watcher モード** で起動します。node-cron を用いて一定間隔で `runWorkspaceLoop` を自動再実行し、いずれかのフィルターにマッチしたときだけ動作します。`-T` を省略した場合は実装グループ計画（`make,plan,start,review,resolve,consolidate,find`）が既定です。明示した `-T` が実装グループでなければ起動時に拒否されます。
+`-w <config.json>` を指定すると、通常の 1 回実行ではなく **Watcher モード** で起動します。node-cron を用いて一定間隔で選択した計画を実行し、いずれかのフィルターにマッチしたときだけ動作します。`-T` の既定は通常モードと同じ全段計画です。実装グループ計画ならチケット実装ループのみ、それ以外は上流→実装→出荷→進化を実行し、計画の完了（`workspace-complete`）で exit 0 します。起動時の endpoint ショートカットは実装グループ計画のみに適用されます。
+
+`-P` / `config.packages` は実装ループの対象パッケージを絞ります。上流段階はワークスペース全体を対象とします。
 
 ```json
 {
